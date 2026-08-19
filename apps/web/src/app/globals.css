@@ -1,0 +1,207 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * FreeOps design tokens — "Calm Minimal" direction.
+ * Brand values below (background/foreground/primary/secondary/muted/card) are
+ * lifted directly from the approved design exploration
+ * (`FreeOps - Calm Minimal.dc.html`). Derived tones (border, popover, input,
+ * sidebar, chart) use CSS color-mix() instead of inventing new hex values, so
+ * everything traces back to the 8 approved brand colors. Status colors
+ * (success/warning/destructive) aren't part of that exploration — they're a
+ * reasonable first pass for payment/PILA status UI, revisit once real
+ * dashboard screens exist. shadcn/ui's `dark` class variant is wired up but
+ * the app defaults to system preference — see `.dark` block below.
+ */
+
+:root {
+  --background: #e8e6e1;
+  --foreground: #1f1b2e;
+
+  --card: #efedfc;
+  --card-foreground: #1f1b2e;
+  --popover: #efedfc;
+  --popover-foreground: #1f1b2e;
+
+  --primary: #6c5ce7;
+  --primary-foreground: #ffffff;
+
+  --secondary: #a29bfe;
+  --secondary-foreground: #1f1b2e;
+
+  --muted: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --muted-foreground: #6b6575;
+
+  --accent: color-mix(in oklab, var(--primary) 12%, var(--background));
+  --accent-foreground: #1f1b2e;
+
+  --border: color-mix(in oklab, var(--foreground) 14%, var(--background));
+  --input: color-mix(in oklab, var(--foreground) 18%, var(--background));
+  --ring: var(--primary);
+
+  --success: #4c9a6a;
+  --success-foreground: #ffffff;
+  --warning: #c98a2c;
+  --warning-foreground: #1f1b2e;
+  --destructive: #c0453a;
+  --destructive-foreground: #ffffff;
+
+  --chart-1: var(--primary);
+  --chart-2: var(--secondary);
+  --chart-3: var(--success);
+  --chart-4: var(--warning);
+  --chart-5: var(--destructive);
+
+  --sidebar: #efedfc;
+  --sidebar-foreground: #1f1b2e;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: #1f1b2e;
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--primary);
+
+  --radius: 0.625rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #1f1b2e;
+    --foreground: #efedfc;
+
+    --card: color-mix(in oklab, var(--foreground) 7%, var(--background));
+    --card-foreground: #efedfc;
+    --popover: color-mix(in oklab, var(--foreground) 7%, var(--background));
+    --popover-foreground: #efedfc;
+
+    --primary: #a29bfe;
+    --primary-foreground: #1f1b2e;
+
+    --secondary: #6c5ce7;
+    --secondary-foreground: #ffffff;
+
+    --muted: color-mix(in oklab, var(--foreground) 6%, var(--background));
+    --muted-foreground: #a6a2ae;
+
+    --accent: color-mix(in oklab, var(--primary) 16%, var(--background));
+    --accent-foreground: #efedfc;
+
+    --border: color-mix(in oklab, var(--foreground) 16%, var(--background));
+    --input: color-mix(in oklab, var(--foreground) 20%, var(--background));
+    --ring: var(--primary);
+
+    --success: #5fb37f;
+    --success-foreground: #10241a;
+    --warning: #dba24a;
+    --warning-foreground: #241a08;
+    --destructive: #e07267;
+    --destructive-foreground: #2b0e0b;
+
+    --sidebar: color-mix(in oklab, var(--foreground) 7%, var(--background));
+    --sidebar-foreground: #efedfc;
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: #1f1b2e;
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: #efedfc;
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--primary);
+  }
+}
+
+/* Explicit .dark class (toggle) wins over system preference either direction. */
+.dark {
+  --background: #1f1b2e;
+  --foreground: #efedfc;
+  --card: color-mix(in oklab, var(--foreground) 7%, var(--background));
+  --card-foreground: #efedfc;
+  --popover: color-mix(in oklab, var(--foreground) 7%, var(--background));
+  --popover-foreground: #efedfc;
+  --primary: #a29bfe;
+  --primary-foreground: #1f1b2e;
+  --secondary: #6c5ce7;
+  --secondary-foreground: #ffffff;
+  --muted: color-mix(in oklab, var(--foreground) 6%, var(--background));
+  --muted-foreground: #a6a2ae;
+  --accent: color-mix(in oklab, var(--primary) 16%, var(--background));
+  --accent-foreground: #efedfc;
+  --border: color-mix(in oklab, var(--foreground) 16%, var(--background));
+  --input: color-mix(in oklab, var(--foreground) 20%, var(--background));
+  --ring: var(--primary);
+  --success: #5fb37f;
+  --success-foreground: #10241a;
+  --warning: #dba24a;
+  --warning-foreground: #241a08;
+  --destructive: #e07267;
+  --destructive-foreground: #2b0e0b;
+  --sidebar: color-mix(in oklab, var(--foreground) 7%, var(--background));
+  --sidebar-foreground: #efedfc;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: #1f1b2e;
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: #efedfc;
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sora);
+  --font-serif: var(--font-lora);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
