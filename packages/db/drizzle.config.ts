@@ -34,6 +34,15 @@ export default defineConfig({
   dbCredentials: {
     url: directUrl,
   },
+  // `identity.ts` declares a reference-only `auth.users` table (via
+  // `pgSchema("auth")`) purely so `public.users.id` can express a real FK
+  // into Supabase Auth's own table — that table/schema is owned and
+  // managed entirely by Supabase, never by drizzle-kit. Restricting
+  // generate/push/introspect to `public` keeps drizzle-kit from ever
+  // trying to CREATE/ALTER/DROP `auth.*` while still letting the FK
+  // reference resolve at the schema-object level (schemaFilter only
+  // affects generate/push/introspect, not TS references).
+  schemaFilter: ["public"],
   strict: true,
   verbose: true,
 });
