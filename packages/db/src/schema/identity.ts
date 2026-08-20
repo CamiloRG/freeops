@@ -8,7 +8,7 @@
  * `auth.users.id` — never independently generated — so that
  * `auth.uid() = user_id`-style RLS policies across the rest of the schema
  * have a stable join key. A `public.handle_new_user()` trigger (see
- * migrations/0002_auth_trigger.sql) keeps this row in sync automatically
+ * migrations/0003_auth_trigger.sql) keeps this row in sync automatically
  * whenever Supabase Auth creates a new `auth.users` row; app code must
  * never insert into `public.users` directly.
  */
