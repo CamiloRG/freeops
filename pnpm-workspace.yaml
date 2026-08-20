@@ -5,5 +5,6 @@ packages:
 # Native build scripts pnpm should NOT auto-run for these deps (Tailwind v4's
 # optional native binaries) — matches what create-next-app scaffolded.
 allowBuilds:
+  esbuild: true
   sharp: false
   unrs-resolver: false
