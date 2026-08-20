@@ -1,0 +1,30 @@
+services:
+  # Local Postgres parity for Supabase Postgres, per app_spec.md's
+  # "Dockerfile & Docker Compose Approach" (DevOps section). Scope for this
+  # phase (Phase 2, DB schema/migrations) is Postgres only — the other
+  # services that section describes (`app`, `scheduling-mcp`, `minio`,
+  # `mailhog`) get added to this file once those pieces of the app exist
+  # (Phase 8 for scheduling-mcp, storage/notifications phases for the
+  # rest), not before.
+  postgres:
+    image: postgres:16-alpine
+    container_name: freeops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: freeops
+      POSTGRES_PASSWORD: freeops_local_dev
+      POSTGRES_DB: freeops
+    ports:
+      # Non-default host port so this doesn't collide with any Postgres
+      # already running on a dev machine's default 5432.
+      - "54329:5432"
+    volumes:
+      - freeops_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U freeops -d freeops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  freeops_postgres_data:
