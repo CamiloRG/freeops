@@ -50,7 +50,7 @@ const RESUME_TOOL_NAME = "record_resume_fields";
 const RESUME_EXTRACTION_TOOL: Anthropic.Tool = {
   name: RESUME_TOOL_NAME,
   description:
-    "Records the structured fields extracted from a freelancer's resume/CV document. Use an empty string or empty array for any field genuinely not present in the document — never invent or guess a value.",
+    "Records the structured fields extracted from a freelancer's resume/CV document. Use an empty string or empty array for any field genuinely not present in the document — never invent, guess, or synthesize a value that isn't explicitly present. Every string field must be plain prose text only — never include XML/HTML-like tags, angle-bracket markup, or any tool-call/parameter syntax in a field value.",
   strict: true,
   input_schema: {
     type: "object",
@@ -58,11 +58,12 @@ const RESUME_EXTRACTION_TOOL: Anthropic.Tool = {
       headline: {
         type: "string",
         description:
-          "A short professional headline/title, e.g. 'Full-Stack Developer'. Empty string if the document has none.",
+          "A short professional headline/title, e.g. 'Full-Stack Developer'. Empty string if the document has none. Plain text only, no markup.",
       },
       summary: {
         type: "string",
-        description: "A short professional summary/bio paragraph. Empty string if the document has none.",
+        description:
+          "A short professional summary/bio paragraph — copy or lightly condense it ONLY if the document actually contains one (an explicit bio, objective, or 'about' section). If the document has no such paragraph, use an empty string. Do NOT compose, infer, or synthesize a summary out of other fields like the skills list or job titles — an empty string is the correct, expected answer for a resume with no bio section, not a failure. Plain prose text only, no markup.",
       },
       skills: {
         type: "array",
@@ -127,29 +128,68 @@ function normalizeDate(value: string | undefined): string | null {
 }
 
 /**
- * Extracts structured resume fields from an uploaded PDF/PNG/JPEG buffer.
- * Never throws just because some fields came back empty — a low-
- * confidence or partial document (e.g. skills found but no work history)
- * is returned as-is. Only throws `ExtractionError` for genuine failures:
- * the Anthropic API call itself failing, or Claude not returning the tool
- * call at all.
+ * Defense-in-depth against a real, deterministically-reproducible failure
+ * mode: Haiku 4.5, when forced (via `tool_choice`) to fill a string field
+ * for which the source document has no genuine content (most often
+ * `summary` on a resume with no bio/objective paragraph), can emit
+ * Anthropic's own internal tool-call tag syntax (e.g. `</parameter>`,
+ * `<parameter name="...">`, `<invoke>`) as the literal field VALUE instead
+ * of plain prose. Confirmed 5/5 reproducible against the real API with a
+ * synthetic no-bio resume; a stricter field description alone (see
+ * `RESUME_EXTRACTION_TOOL`'s `summary` description) reduced but did NOT
+ * reliably eliminate it, so this pattern-based check is the actual
+ * backstop — any string field matching it is treated as corrupted and
+ * dropped entirely (fail closed) rather than partially cleaned, since a
+ * field that has gone this wrong has no reliable prose left to salvage.
+ * Deliberately broad (matches ANY tag-like `<...>` structure, attributes
+ * included) — a resume field has no legitimate reason to contain markup,
+ * so a false-positive strip is a far smaller cost than a leaked tag
+ * reaching the user's screen unfiltered.
+ *
+ * A second pattern, `CODE_LEAK_PATTERN`, was added after the same live
+ * verification run also produced a DIFFERENT corruption shape once (not
+ * XML-tag-like at all): a `skills` entry came back as literal JS-ish
+ * fragments (`").concat(records["`, `type=`) instead of a skill name —
+ * evidently the same underlying "forced to emit content that isn't really
+ * there" failure mode, just leaking a different internal syntax. Braces,
+ * backslashes, and backticks never legitimately appear in resume field
+ * text, and `.concat(`/`=>`/`function(`/`type=`/`name=`/`${` are
+ * recognizable code/template-literal/JSON-attribute fragments — none of
+ * which any real skill, title, or prose sentence would contain (verified
+ * against ordinary tokens like "C++", "Node.js", "CI/CD" not matching).
  */
-export async function extractResumeFromFile(params: {
-  /** Decrypted BYOK key, or undefined to use FreeOps's default-tier key. */
-  apiKey?: string;
-  buffer: Buffer;
-  /** Must be one of the `resumeImport` upload slot's allowed types (see `@/lib/storage/r2`). */
-  mimeType: "application/pdf" | "image/png" | "image/jpeg";
-}): Promise<ExtractedResume> {
-  const { apiKey, buffer, mimeType } = params;
-  const client = getAnthropicClient(apiKey);
-  const base64Data = buffer.toString("base64");
+const TOOL_ARTIFACT_PATTERN = /<\/?[a-zA-Z_][\w:-]*(?:\s[^<>]*)?>/;
+const CODE_LEAK_PATTERN = /[{}\\`]|\.concat\(|=>|\bfunction\s*\(|\btype\s*=\s*["']?|\bname\s*=\s*["']?|\$\{/i;
 
-  const documentBlock: Anthropic.Messages.ContentBlockParam =
-    mimeType === "application/pdf"
-      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64Data } }
-      : { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } };
+/** True if `value` shows signs of a tool-call-tag or code-fragment leak (see above). */
+function looksCorrupted(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return TOOL_ARTIFACT_PATTERN.test(value) || CODE_LEAK_PATTERN.test(value);
+}
 
+/** Trims a raw string field and fails closed (drops it) if it looks corrupted. */
+function sanitizeField(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (looksCorrupted(trimmed)) return null;
+  return trimmed;
+}
+
+/** True if any string field anywhere in a raw extraction result looks corrupted. */
+function anyFieldCorrupted(raw: RawExtraction): boolean {
+  if (looksCorrupted(raw.headline) || looksCorrupted(raw.summary)) return true;
+  if ((raw.skills ?? []).some(looksCorrupted)) return true;
+  return (raw.entries ?? []).some(
+    (entry) =>
+      looksCorrupted(entry.title) || looksCorrupted(entry.clientName) || looksCorrupted(entry.description)
+  );
+}
+
+/** One raw `messages.create` call against the extraction tool, unsanitized. */
+async function callExtractionApi(
+  client: Anthropic,
+  documentBlock: Anthropic.Messages.ContentBlockParam
+): Promise<RawExtraction> {
   let response: Anthropic.Message;
   try {
     response = await client.messages.create({
@@ -183,20 +223,62 @@ export async function extractResumeFromFile(params: {
     throw new ExtractionError("Claude did not return structured resume data for this file.");
   }
 
-  const raw = toolUse.input as RawExtraction;
+  return toolUse.input as RawExtraction;
+}
+
+/**
+ * Extracts structured resume fields from an uploaded PDF/PNG/JPEG buffer.
+ * Never throws just because some fields came back empty — a low-
+ * confidence or partial document (e.g. skills found but no work history)
+ * is returned as-is. Only throws `ExtractionError` for genuine failures:
+ * the Anthropic API call itself failing, or Claude not returning the tool
+ * call at all.
+ */
+export async function extractResumeFromFile(params: {
+  /** Decrypted BYOK key, or undefined to use FreeOps's default-tier key. */
+  apiKey?: string;
+  buffer: Buffer;
+  /** Must be one of the `resumeImport` upload slot's allowed types (see `@/lib/storage/r2`). */
+  mimeType: "application/pdf" | "image/png" | "image/jpeg";
+}): Promise<ExtractedResume> {
+  const { apiKey, buffer, mimeType } = params;
+  const client = getAnthropicClient(apiKey);
+  const base64Data = buffer.toString("base64");
+
+  const documentBlock: Anthropic.Messages.ContentBlockParam =
+    mimeType === "application/pdf"
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64Data } }
+      : { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } };
+
+  let raw = await callExtractionApi(client, documentBlock);
+
+  // Defense-in-depth: if the tool-call-tag leak (see TOOL_ARTIFACT_PATTERN's
+  // doc comment) shows up anywhere in the result, retry the request once —
+  // cheap insurance since it's a single extra Haiku call, and occasionally
+  // resolves it outright. Whether or not the retry comes back clean, every
+  // string field still goes through `sanitizeField` below, so a corrupted
+  // field NEVER reaches the caller either way — the retry only improves
+  // completeness, it is never relied on for safety by itself.
+  if (anyFieldCorrupted(raw)) {
+    const retried = await callExtractionApi(client, documentBlock);
+    if (!anyFieldCorrupted(retried)) {
+      raw = retried;
+    }
+  }
 
   return {
-    headline: raw.headline?.trim() || null,
-    summary: raw.summary?.trim() || null,
-    skills: (raw.skills ?? []).map((skill) => skill.trim()).filter(Boolean),
+    headline: sanitizeField(raw.headline),
+    summary: sanitizeField(raw.summary),
+    skills: (raw.skills ?? []).map((skill) => sanitizeField(skill)).filter((skill): skill is string => Boolean(skill)),
     entries: (raw.entries ?? [])
-      .filter((entry) => entry.title?.trim())
       .map((entry) => ({
-        title: entry.title.trim(),
-        clientName: entry.clientName?.trim() || null,
-        description: entry.description?.trim() || null,
+        title: sanitizeField(entry.title),
+        clientName: sanitizeField(entry.clientName),
+        description: sanitizeField(entry.description),
         startDate: normalizeDate(entry.startDate),
         endDate: normalizeDate(entry.endDate),
-      })),
+      }))
+      .filter((entry) => Boolean(entry.title))
+      .map((entry) => ({ ...entry, title: entry.title as string }) satisfies ExtractedResumeEntry),
   };
 }
