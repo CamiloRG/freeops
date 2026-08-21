@@ -16,15 +16,7 @@
 import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/lib/validation/auth";
 import { createClient } from "@/lib/supabase/server";
-
-export type AuthActionState = {
-  status: "idle" | "error" | "check-email";
-  fieldErrors?: Partial<Record<string, string>>;
-  formError?: string;
-  email?: string;
-};
-
-export const initialAuthActionState: AuthActionState = { status: "idle" };
+import type { AuthActionState } from "./action-state";
 
 function firstFieldErrors(
   flattened: Record<string, string[] | undefined>

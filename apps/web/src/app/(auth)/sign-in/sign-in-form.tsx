@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { initialAuthActionState, signIn } from "../actions";
+import { signIn } from "../actions";
+import { initialAuthActionState } from "../action-state";
 import { CheckEmailPanel } from "../check-email-panel";
 
 export function SignInForm() {

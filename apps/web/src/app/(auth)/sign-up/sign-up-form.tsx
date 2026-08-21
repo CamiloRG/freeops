@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { initialAuthActionState, signUp } from "../actions";
+import { signUp } from "../actions";
+import { initialAuthActionState } from "../action-state";
 import { CheckEmailPanel } from "../check-email-panel";
 
 export function SignUpForm() {
