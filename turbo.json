@@ -20,7 +20,8 @@
         "R2_BUCKET_TAX_DOCUMENTS",
         "R2_BUCKET_WITHHOLDING_CERTIFICATES",
         "R2_BUCKET_VAULT_EXPORTS",
-        "R2_BUCKET_RESUME_EXPORTS"
+        "R2_BUCKET_RESUME_EXPORTS",
+        "ENCRYPTION_KEY"
       ]
     },
     "dev": {
