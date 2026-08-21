@@ -8,12 +8,18 @@ import { TopBar } from "@/components/layout/top-bar";
  * Business, Finance. Not applied to the public marketing site, auth pages,
  * or the public booking page, which each have their own minimal shells.
  */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  userEmail,
+}: {
+  children: ReactNode;
+  userEmail?: string;
+}) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex flex-1 flex-col">
-        <TopBar />
+        <TopBar userEmail={userEmail} />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
       </div>
       <MobileTabBar />
