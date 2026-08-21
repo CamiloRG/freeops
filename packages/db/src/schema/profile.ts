@@ -97,6 +97,12 @@ export const taxInfoDocuments = pgTable(
     taxInfoId: uuid("tax_info_id")
       .notNull()
       .references(() => taxInfo.id, { onDelete: "restrict" }),
+    // Phase 4 addition: `POST /api/v1/me/tax-info/documents` and its
+    // response (`{ id, type, fileUrl, uploadedAt }`) require a document
+    // type per app_spec.md's API contract; the original schema draft had
+    // no column for it. `rut` | `camara_comercio` | `other`, same
+    // CHECK-constraint convention as every other enum-like column here.
+    documentType: text("document_type").notNull().default("other"),
     fileKey: text("file_key").notNull(),
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type"),
@@ -104,5 +110,11 @@ export const taxInfoDocuments = pgTable(
     createdAt: timestamps.createdAt,
     deletedAt: softDelete.deletedAt,
   },
-  (table) => [index("idx_tax_info_documents_tax_info").on(table.taxInfoId)]
+  (table) => [
+    index("idx_tax_info_documents_tax_info").on(table.taxInfoId),
+    check(
+      "tax_info_documents_document_type_check",
+      sql`${table.documentType} in ('rut','camara_comercio','other')`
+    ),
+  ]
 );

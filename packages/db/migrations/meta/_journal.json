@@ -36,6 +36,20 @@
       "when": 1787265500000,
       "tag": "0004_row_level_security",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787288559576,
+      "tag": "0005_resume_last_generated_pdf_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787288806088,
+      "tag": "0006_tax_info_documents_type",
+      "breakpoints": true
     }
   ]
 }
