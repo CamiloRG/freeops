@@ -101,6 +101,16 @@ export const UPLOAD_SLOTS = {
     allowedMimeTypes: ["image/png", "image/jpeg"] as const,
     maxSizeBytes: 5 * 1024 * 1024,
   },
+  // Contract & amendment documents (Phase 5, Business module) — POST
+  // /api/v1/projects/:projectId/documents. Spec: "PDF/DOCX, ≤25MB". DOCX
+  // mime type reuses the same constant already used for tax documents.
+  contractDocument: {
+    allowedMimeTypes: [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    ] as const,
+    maxSizeBytes: 25 * 1024 * 1024, // 25MB, per POST /api/v1/projects/:projectId/documents
+  },
   // AI-assisted resume import (user-proposed feature beyond app_spec.md's
   // original scope, see the codebase-memory-mcp ADR) — POST
   // /api/v1/me/resume/extract. DOCX deliberately unsupported: Claude

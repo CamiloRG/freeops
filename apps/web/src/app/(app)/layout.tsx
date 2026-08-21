@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { Toaster } from "@/components/ui/sonner";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -22,5 +23,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/sign-in");
   }
 
-  return <AppShell userEmail={user.email ?? undefined}>{children}</AppShell>;
+  return (
+    <AppShell userEmail={user.email ?? undefined}>
+      {children}
+      <Toaster position="bottom-right" />
+    </AppShell>
+  );
 }
