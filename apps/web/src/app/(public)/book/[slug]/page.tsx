@@ -14,7 +14,7 @@ export default async function PublicBookingPage({
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="font-serif text-2xl">
+          <CardTitle className="text-2xl font-semibold">
             Booking page: {slug}
           </CardTitle>
           <CardDescription>

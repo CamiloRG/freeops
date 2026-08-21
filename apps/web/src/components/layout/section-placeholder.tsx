@@ -21,7 +21,7 @@ export function SectionPlaceholder({
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 md:px-8 md:py-16">
       <div className="mb-8">
-        <h1 className="font-serif text-3xl font-semibold">{title}</h1>
+        <h1 className="text-3xl font-semibold">{title}</h1>
         <p className="mt-2 text-muted-foreground">{description}</p>
       </div>
       <Card>

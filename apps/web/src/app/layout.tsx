@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
-import { Lora, Sora } from "next/font/google";
+import { Public_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const sora = Sora({
-  variable: "--font-sora",
+const publicSans = Public_Sans({
+  variable: "--font-public-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
-const lora = Lora({
-  variable: "--font-lora",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  weight: ["700"],
   display: "swap",
 });
 
@@ -27,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es-CO"
-      className={`${sora.variable} ${lora.variable}`}
+      className={`${publicSans.variable} ${spaceGrotesk.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">

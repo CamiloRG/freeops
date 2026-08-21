@@ -56,7 +56,7 @@ export default function MarketingHomePage() {
           <p className="mb-4 text-sm font-medium tracking-wide text-primary uppercase">
             For Colombian freelancers
           </p>
-          <h1 className="text-balance font-serif text-4xl font-semibold leading-tight md:text-6xl">
+          <h1 className="text-balance text-4xl font-semibold leading-tight md:text-6xl">
             The admin backup a traditional employer would give you —
             minus the employer.
           </h1>
@@ -78,7 +78,7 @@ export default function MarketingHomePage() {
 
       <section id="pillars" className="mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-serif text-3xl font-semibold md:text-4xl">
+          <h2 className="text-3xl font-semibold md:text-4xl">
             Everything scattered becomes one connected hub
           </h2>
           <p className="mt-4 text-muted-foreground">
@@ -96,7 +96,7 @@ export default function MarketingHomePage() {
                   <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Icon className="size-5" aria-hidden="true" />
                   </div>
-                  <CardTitle className="font-serif text-xl">
+                  <CardTitle className="text-xl font-semibold">
                     {pillar.title}
                   </CardTitle>
                 </CardHeader>
@@ -127,7 +127,7 @@ export default function MarketingHomePage() {
 
       <section id="compliance" className="bg-card">
         <div className="mx-auto max-w-4xl px-4 py-16 text-center md:px-8 md:py-24">
-          <h2 className="font-serif text-3xl font-semibold md:text-4xl">
+          <h2 className="text-3xl font-semibold md:text-4xl">
             Built for Colombian compliance, not bolted on after
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
@@ -149,7 +149,7 @@ export default function MarketingHomePage() {
       </section>
 
       <section className="mx-auto max-w-4xl px-4 py-16 text-center md:px-8 md:py-24">
-        <h2 className="font-serif text-3xl font-semibold md:text-4xl">
+        <h2 className="text-3xl font-semibold md:text-4xl">
           Get your admin off your plate
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-muted-foreground">

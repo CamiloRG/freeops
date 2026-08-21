@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/brand/logo";
 import { NAV_ITEMS } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 
@@ -16,9 +17,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-border md:bg-sidebar">
       <div className="flex h-16 items-center gap-2 px-6">
-        <span className="font-serif text-xl font-semibold text-sidebar-foreground">
-          FreeOps
-        </span>
+        <Logo />
       </div>
       <nav
         aria-label="Main"
