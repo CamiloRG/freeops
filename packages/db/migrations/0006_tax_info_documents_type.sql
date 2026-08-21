@@ -1,0 +1,2 @@
+ALTER TABLE "tax_info_documents" ADD COLUMN "document_type" text DEFAULT 'other' NOT NULL;--> statement-breakpoint
+ALTER TABLE "tax_info_documents" ADD CONSTRAINT "tax_info_documents_document_type_check" CHECK ("tax_info_documents"."document_type" in ('rut','camara_comercio','other'));

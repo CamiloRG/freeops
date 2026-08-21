@@ -30,6 +30,11 @@ export const resumes = pgTable("resumes", {
   headline: text("headline"),
   summary: text("summary"),
   templateId: text("template_id").default("default"), // [ASSUMED DEFAULT] single built-in template for v1
+  // Phase 4 addition: object-storage key of the most recently exported PDF
+  // (R2 `resume-exports` bucket) — backs `GET /api/v1/me/resume`'s
+  // `lastGeneratedPdfUrl` field from the API contract, which has no
+  // column to read from otherwise. Nullable; null until the first export.
+  lastGeneratedPdfKey: text("last_generated_pdf_key"),
   ...timestamps,
   ...softDelete,
 });

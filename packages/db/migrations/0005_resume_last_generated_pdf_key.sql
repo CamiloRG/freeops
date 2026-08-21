@@ -1,0 +1,1 @@
+ALTER TABLE "resumes" ADD COLUMN "last_generated_pdf_key" text;
