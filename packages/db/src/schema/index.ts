@@ -14,3 +14,4 @@ export * from "./finance";
 export * from "./compliance";
 export * from "./billing";
 export * from "./audit";
+export * from "./ai";
