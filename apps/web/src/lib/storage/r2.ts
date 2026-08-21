@@ -101,6 +101,16 @@ export const UPLOAD_SLOTS = {
     allowedMimeTypes: ["image/png", "image/jpeg"] as const,
     maxSizeBytes: 5 * 1024 * 1024,
   },
+  // AI-assisted resume import (user-proposed feature beyond app_spec.md's
+  // original scope, see the codebase-memory-mcp ADR) — POST
+  // /api/v1/me/resume/extract. DOCX deliberately unsupported: Claude
+  // cannot read it directly as either a `document` or `image` content
+  // block. This slot is validation-only — the uploaded file is never
+  // persisted to R2 (read into memory, sent to Claude, then discarded).
+  resumeImport: {
+    allowedMimeTypes: ["application/pdf", "image/png", "image/jpeg"] as const,
+    maxSizeBytes: 10 * 1024 * 1024,
+  },
 } satisfies Record<string, { allowedMimeTypes: readonly string[]; maxSizeBytes: number }>;
 
 export type UploadSlot = keyof typeof UPLOAD_SLOTS;
