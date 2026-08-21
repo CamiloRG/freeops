@@ -4,148 +4,240 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * FreeOps design tokens — "Cloud Neutral" direction (v2 rebrand).
- * Brand values below (background/foreground/card/primary/secondary/muted/
- * border) are lifted directly from the approved design exploration
- * (`Design System & Logo Options.dc.html`, option 7a). The approved hexes
- * are: violet scale #F1EEFC/#E4DFFA/#B3A4F0/#6C5CE7/#4A3BC0/#2E2570, and
- * greige/neutral scale #FAFAF8/#F0EFEB/#D9D6CC/#9C9A92/#6B6A62/#2B2A26.
- * Everything not directly lifted from those 12 hexes is derived with
- * CSS color-mix() instead of inventing new values. Status colors
- * (success/warning/destructive) aren't part of that exploration — they're
- * carried over unchanged from the prior "Calm Minimal" pass, a reasonable
- * first pass for payment/PILA status UI, revisit once real dashboard
- * screens exist. shadcn/ui's `dark` class variant is wired up but the app
- * defaults to system preference — see `.dark` block below.
+ * FreeOps design tokens — "Ledger Quiet" direction (v3 rebrand).
+ * Supersedes "Cloud Neutral" (v2). Source of truth:
+ * `app/design/design_handoff_freeops_ledger_quiet/{README.md,tokens.css,
+ * tokens.json,tailwind.theme.js}` (outside this repo) — hexes below are
+ * copied verbatim from `tokens.css`, not approximated.
+ *
+ * Direction in one line: structure instead of decoration. No radii, no
+ * shadows, anywhere. Almost no lines. Every label/metadata/number is mono,
+ * uppercase. Ink acts (primary buttons/text); violet (`--accent`) is
+ * reserved exclusively for STATE (focus, active nav/tab, automation
+ * markers, required-verification notices) — never a button fill, never
+ * decoration.
+ *
+ * Legacy shadcn semantic slots (--background/--foreground/--card/--primary/
+ * --secondary/--muted/--accent/--border/--input/--ring/--success/--warning/
+ * --destructive/--sidebar-*) are kept and re-pointed onto the new palette
+ * rather than removed, so every screen this stage does NOT touch (Personal/
+ * Business modules — stages 2/3) keeps rendering without errors. Notably
+ * `--primary` and `--accent` both resolve to the same violet `--accent`
+ * token they already pointed at under Cloud Neutral (Cloud Neutral's
+ * "primary" WAS this exact hex) — so untouched pages see zero color
+ * regression even though they don't yet get the flat/mono Ledger Quiet
+ * treatment. New literal Ledger Quiet tokens (paper/surface-sunken/
+ * surface-raised/ink family/line family/accent ramp/success/warning/danger)
+ * are added alongside for every component this stage restyles in place.
  */
 
 :root {
-  --background: #fafaf8;
-  --foreground: #2b2a26;
+  /* ---- Ledger Quiet raw tokens (verbatim from tokens.css) ---- */
+  --paper: #fafaf8; /* app + page background */
+  --surface-sunken: #f4f2ec; /* nav rail, inline notices, hover rows */
+  --surface-raised: #ffffff; /* only where a true white panel is needed */
+  --ink: #2b2a26; /* primary text AND primary button background */
+  --ink-soft: #6b6a62; /* body copy, secondary text */
+  --ink-muted: #9c9a92; /* mono labels, metadata, captions */
+  --ink-faint: #c7c4b8; /* placeholders, disabled text */
+  --line: #e4e2da; /* the ONLY structural hairline */
+  --line-soft: #efede5; /* skeletons, disabled fills */
 
-  --card: #ffffff;
-  --card-foreground: #2b2a26;
-  --popover: #ffffff;
-  --popover-foreground: #2b2a26;
+  --accent-50: #f1eefc;
+  --accent-100: #e4dffa;
+  --accent-300: #b3a4f0;
+  --accent: #6c5ce7; /* state only — never decoration */
+  --accent-700: #4a3bc0;
+  --accent-900: #2e2570;
 
-  --primary: #6c5ce7;
-  --primary-foreground: #ffffff;
+  --success: #2f6e5e;
+  --success-bg: #dcefe9;
+  --warning: #8a6d1f;
+  --warning-bg: #f7efd8;
+  --danger: #c24b3a;
+  --danger-bg: #f8e7e3;
 
-  --secondary: #f0efeb;
-  --secondary-foreground: #6b6a62;
+  /* ---- Legacy shadcn semantic slots, re-pointed onto the tokens above ---- */
+  --background: var(--paper);
+  --foreground: var(--ink);
 
-  --muted: #f0efeb;
-  --muted-foreground: #6b6a62;
+  --card: var(--surface-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--ink);
 
-  --accent: color-mix(in oklab, var(--primary) 12%, var(--background));
-  --accent-foreground: #2b2a26;
+  --primary: var(--accent);
+  --primary-foreground: var(--paper);
 
-  --border: #f0efeb;
-  --input: color-mix(in oklab, var(--foreground) 18%, var(--background));
-  --ring: var(--primary);
+  --secondary: var(--line-soft);
+  --secondary-foreground: var(--ink-soft);
 
-  --success: #4c9a6a;
-  --success-foreground: #ffffff;
-  --warning: #c98a2c;
-  --warning-foreground: #1f1b2e;
-  --destructive: #c0453a;
-  --destructive-foreground: #ffffff;
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-soft);
 
-  --chart-1: var(--primary);
-  --chart-2: var(--secondary);
+  /* Shadcn's generic "accent" slot (hover/focus surface on menu items etc.)
+     and Ledger Quiet's "accent" (state-only violet) are the SAME css custom
+     property in this file by design — see the file-header note above. The
+     two remaining consumers of the old subtle-tint meaning (select.tsx,
+     dropdown-menu.tsx) were rewritten this stage to use `--surface-sunken`
+     for hover/highlight instead (matching the handoff's own "hover:
+     background: --surface-sunken" rule for rows/nav), so nothing still
+     expects `--accent` to mean "light tint." */
+  --accent-foreground: var(--ink);
+
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent);
+
+  --success-foreground: var(--surface-raised);
+  --warning-foreground: var(--surface-raised);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--surface-raised);
+
+  --chart-1: var(--accent);
+  --chart-2: var(--ink-soft);
   --chart-3: var(--success);
   --chart-4: var(--warning);
-  --chart-5: var(--destructive);
+  --chart-5: var(--danger);
 
-  --sidebar: var(--card);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--primary);
+  /* Nav rail bg is literally --surface-sunken per the handoff — matches
+     directly, no re-derivation needed. */
+  --sidebar: var(--surface-sunken);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--surface-raised);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--accent);
 
-  --radius: 0.875rem;
+  /* ---- Non-negotiables: radius 0 and shadow none, EVERYWHERE ----
+     Kept as a bare token too (some component classes reference var(--radius)
+     directly) but the real enforcement happens per-scale-step in the
+     `@theme inline` block below — see its comment for why the base token
+     alone is not sufficient. */
+  --radius: 0px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #2b2a26;
-    --foreground: #fafaf8;
+    /* Dark variant has no source-of-truth mock (the handoff is light-only,
+       like every design pass in this project so far) — derived here using
+       the same color-mix()-based structural approach Cloud Neutral used,
+       re-anchored to Ledger Quiet's hexes. Ink and paper conceptually swap
+       roles (ink becomes the light, high-contrast "acts" color against a
+       dark paper) while the accent ramp stays fixed brand hue, using the
+       lighter --accent-300 step for on-dark legibility exactly like Cloud
+       Neutral's dark --primary did. */
+    --paper: #211f1b;
+    --surface-sunken: color-mix(in oklab, white 6%, var(--paper));
+    --surface-raised: color-mix(in oklab, white 10%, var(--paper));
+    --ink: #f5f3ee;
+    --ink-soft: #b9b7ae;
+    --ink-muted: #8b897f;
+    --ink-faint: #55534a;
+    --line: color-mix(in oklab, white 14%, var(--paper));
+    --line-soft: color-mix(in oklab, white 8%, var(--paper));
 
-    --card: color-mix(in oklab, var(--foreground) 7%, var(--background));
-    --card-foreground: #fafaf8;
-    --popover: color-mix(in oklab, var(--foreground) 7%, var(--background));
-    --popover-foreground: #fafaf8;
-
-    --primary: #b3a4f0;
-    --primary-foreground: #2b2a26;
-
-    --secondary: color-mix(in oklab, var(--foreground) 10%, var(--background));
-    --secondary-foreground: #fafaf8;
-
-    --muted: color-mix(in oklab, var(--foreground) 7%, var(--background));
-    --muted-foreground: #9c9a92;
-
-    --accent: color-mix(in oklab, var(--primary) 16%, var(--background));
-    --accent-foreground: #fafaf8;
-
-    --border: color-mix(in oklab, var(--foreground) 16%, var(--background));
-    --input: color-mix(in oklab, var(--foreground) 20%, var(--background));
-    --ring: var(--primary);
+    --accent: #8c7ef0;
+    --accent-50: color-mix(in oklab, var(--accent) 10%, var(--paper));
+    --accent-100: color-mix(in oklab, var(--accent) 18%, var(--paper));
+    --accent-300: #b3a4f0;
+    --accent-700: #a396ec;
+    --accent-900: #d8d1f8;
 
     --success: #5fb37f;
-    --success-foreground: #10241a;
+    --success-bg: color-mix(in oklab, var(--success) 18%, var(--paper));
     --warning: #dba24a;
-    --warning-foreground: #241a08;
-    --destructive: #e07267;
-    --destructive-foreground: #2b0e0b;
+    --warning-bg: color-mix(in oklab, var(--warning) 18%, var(--paper));
+    --danger: #e07267;
+    --danger-bg: color-mix(in oklab, var(--danger) 18%, var(--paper));
 
-    --sidebar: var(--card);
-    --sidebar-foreground: var(--foreground);
-    --sidebar-primary: var(--primary);
-    --sidebar-primary-foreground: var(--primary-foreground);
-    --sidebar-accent: var(--accent);
-    --sidebar-accent-foreground: var(--foreground);
-    --sidebar-border: var(--border);
-    --sidebar-ring: var(--primary);
+    --background: var(--paper);
+    --foreground: var(--ink);
+    --card: var(--surface-raised);
+    --card-foreground: var(--ink);
+    --popover: var(--surface-raised);
+    --popover-foreground: var(--ink);
+    --primary: var(--accent);
+    --primary-foreground: var(--paper);
+    --secondary: var(--line-soft);
+    --secondary-foreground: var(--ink-soft);
+    --muted: var(--surface-sunken);
+    --muted-foreground: var(--ink-soft);
+    --accent-foreground: var(--ink);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent);
+    --destructive: var(--danger);
+    --destructive-foreground: var(--paper);
+    --success-foreground: var(--paper);
+    --warning-foreground: var(--paper);
+    --sidebar: var(--surface-sunken);
+    --sidebar-foreground: var(--ink);
+    --sidebar-primary: var(--accent);
+    --sidebar-primary-foreground: var(--paper);
+    --sidebar-accent: var(--surface-raised);
+    --sidebar-accent-foreground: var(--ink);
+    --sidebar-border: var(--line);
+    --sidebar-ring: var(--accent);
   }
 }
 
 /* Explicit .dark class (toggle) wins over system preference either direction. */
 .dark {
-  --background: #2b2a26;
-  --foreground: #fafaf8;
-  --card: color-mix(in oklab, var(--foreground) 7%, var(--background));
-  --card-foreground: #fafaf8;
-  --popover: color-mix(in oklab, var(--foreground) 7%, var(--background));
-  --popover-foreground: #fafaf8;
-  --primary: #b3a4f0;
-  --primary-foreground: #2b2a26;
-  --secondary: color-mix(in oklab, var(--foreground) 10%, var(--background));
-  --secondary-foreground: #fafaf8;
-  --muted: color-mix(in oklab, var(--foreground) 7%, var(--background));
-  --muted-foreground: #9c9a92;
-  --accent: color-mix(in oklab, var(--primary) 16%, var(--background));
-  --accent-foreground: #fafaf8;
-  --border: color-mix(in oklab, var(--foreground) 16%, var(--background));
-  --input: color-mix(in oklab, var(--foreground) 20%, var(--background));
-  --ring: var(--primary);
+  --paper: #211f1b;
+  --surface-sunken: color-mix(in oklab, white 6%, var(--paper));
+  --surface-raised: color-mix(in oklab, white 10%, var(--paper));
+  --ink: #f5f3ee;
+  --ink-soft: #b9b7ae;
+  --ink-muted: #8b897f;
+  --ink-faint: #55534a;
+  --line: color-mix(in oklab, white 14%, var(--paper));
+  --line-soft: color-mix(in oklab, white 8%, var(--paper));
+
+  --accent: #8c7ef0;
+  --accent-50: color-mix(in oklab, var(--accent) 10%, var(--paper));
+  --accent-100: color-mix(in oklab, var(--accent) 18%, var(--paper));
+  --accent-300: #b3a4f0;
+  --accent-700: #a396ec;
+  --accent-900: #d8d1f8;
+
   --success: #5fb37f;
-  --success-foreground: #10241a;
+  --success-bg: color-mix(in oklab, var(--success) 18%, var(--paper));
   --warning: #dba24a;
-  --warning-foreground: #241a08;
-  --destructive: #e07267;
-  --destructive-foreground: #2b0e0b;
-  --sidebar: var(--card);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--primary);
+  --warning-bg: color-mix(in oklab, var(--warning) 18%, var(--paper));
+  --danger: #e07267;
+  --danger-bg: color-mix(in oklab, var(--danger) 18%, var(--paper));
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--paper);
+  --secondary: var(--line-soft);
+  --secondary-foreground: var(--ink-soft);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-soft);
+  --accent-foreground: var(--ink);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--paper);
+  --success-foreground: var(--paper);
+  --warning-foreground: var(--paper);
+  --sidebar: var(--surface-sunken);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--surface-raised);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--accent);
 }
 
 @theme inline {
@@ -186,20 +278,149 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* ---- Ledger Quiet literal color utilities (bg-paper, text-ink-soft, …) ---- */
+  --color-paper: var(--paper);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-300: var(--accent-300);
+  --color-accent-700: var(--accent-700);
+  --color-accent-900: var(--accent-900);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success-bg: var(--success-bg);
+  --color-warning-bg: var(--warning-bg);
+
   --font-sans: var(--font-public-sans);
   --font-brand: var(--font-space-grotesk);
+  --font-mono: var(--font-ibm-plex-mono);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* ---- Motion: hover/color 120ms, tab/panel change 180ms (README "Radius,
+     shadow, motion" + "Movimiento" in the .dc.html reference) ---- */
+  --transition-duration-fast: 120ms;
+  --transition-duration-base: 180ms;
+  --ease-ledger: cubic-bezier(0.16, 0.84, 0.44, 1);
+
+  /* ---- Max text measure (README layout constant `max-measure: 520px`) ----
+     Named rather than left as a repeated arbitrary value since it's used
+     across the marketing hero, auth panels, and every app content area.
+     Everything else layout-constant-shaped (rail width, content padding,
+     hero grid gap, field-grid gaps, page padding) is applied per-component
+     as arbitrary-value utilities instead of new global spacing tokens —
+     Tailwind v4's bare numeric spacing scale (`p-6`, `gap-4`, …) is a
+     single `--spacing` multiplier used pervasively by every untouched
+     screen in this codebase, and Ledger Quiet's scale (4·8·12·16·20·26·32·
+     44·56·64) doesn't line up with that multiplier at several steps (26,
+     44) — redefining the base would silently reflow every existing
+     `p-*`/`gap-*` class across the whole app, which is a much bigger blast
+     radius than this stage is meant to touch. */
+  --container-measure: 520px;
+
+  /* ---- Ledger Quiet type scale (fontSize utilities: text-display-xl, …) ---- */
+  --text-display-xl: 46px;
+  --text-display-xl--line-height: 1.05;
+  --text-display-xl--letter-spacing: -0.025em;
+  --text-display-xl--font-weight: 500;
+  --text-display: 32px;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 500;
+  --text-h1: 24px;
+  --text-h1--line-height: 1.2;
+  --text-h1--letter-spacing: -0.01em;
+  --text-h1--font-weight: 500;
+  --text-h2: 20px;
+  --text-h2--line-height: 1.3;
+  --text-h2--font-weight: 500;
+  --text-h3: 16px;
+  --text-h3--line-height: 1.4;
+  --text-h3--font-weight: 500;
+  --text-body: 14px;
+  --text-body--line-height: 1.7;
+  --text-body-sm: 13.5px;
+  --text-body-sm--line-height: 1.6;
+  --text-caption: 12.5px;
+  --text-caption--line-height: 1.55;
+  --text-ui: 12.5px;
+  --text-ui--line-height: 1.2;
+  --text-ui--font-weight: 500;
+  --text-label-mono: 10.5px;
+  --text-label-mono--letter-spacing: 0.06em;
+  --text-label-mono--font-weight: 500;
+  --text-data-mono: 14px;
+  --text-data-mono--line-height: 1.4;
+
+  /*
+   * ---- Radius: forced to 0 at every named scale step, not just the base
+   * token. This is deliberate, not redundant: Tailwind v4's default theme
+   * (node_modules/tailwindcss/theme.css) defines --radius-xs/sm/md/lg/xl/
+   * 2xl/3xl/4xl as independent literal lengths (0.125rem…2rem), and the
+   * PRIOR version of this file only overrode sm/md/lg/xl by deriving them
+   * from a single --radius base via calc() (e.g. `--radius-xl: calc(var(
+   * --radius) + 4px)`). With --radius: 0px that calc chain is NOT
+   * uniformly 0: calc(0 - 4px)/calc(0 - 2px) (sm/md) produce a negative
+   * length, which IS invalid for border-radius and so falls back to the
+   * property's 0 initial value by accident (invalid-at-computed-value-time) —
+   * but calc(0 + 4px) (xl) is a perfectly VALID positive 4px radius that
+   * would have rendered as a real rounded corner. --radius-2xl/3xl/4xl
+   * were never even referenced by the old calc chain, so `rounded-4xl`
+   * (used by Badge's old pill shape) silently fell through to Tailwind's
+   * own 2rem default the whole time. Every step below is now a literal
+   * 0px, independently, so no calc arithmetic and no un-overridden
+   * upstream default can reintroduce a corner. Verified against a real
+   * rendered element's computed `border-radius` (see this stage's
+   * verification notes), not just by reading this file.
+   */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  /*
+   * ---- Shadow: every named scale step neutralized the same way (token-
+   * level fix, not a per-usage chase). `shadow-*` utilities anywhere in the
+   * codebase — including files this stage never opens, e.g. tabs.tsx,
+   * sheet.tsx, the kanban board, the branding form — now resolve to `none`.
+   */
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
+  --shadow: none;
+  --shadow-inner: none;
+  --inset-shadow-2xs: none;
+  --inset-shadow-xs: none;
+  --inset-shadow-sm: none;
+  --drop-shadow-xs: none;
+  --drop-shadow-sm: none;
+  --drop-shadow-md: none;
+  --drop-shadow-lg: none;
+  --drop-shadow-xl: none;
+  --drop-shadow-2xl: none;
+  --drop-shadow: none;
 }
 
 /*
  * AiProcessingCard's icon ring pulse + progress-bar sweep — ported from
  * the approved Personal-module redesign mockup (Processing.dc.html).
  * Referenced via Tailwind arbitrary-value `animate-[...]` utilities in
- * `components/ai/ai-processing-card.tsx`.
+ * `components/ai/ai-processing-card.tsx`. Untouched this stage (Personal
+ * module is stage 2) — kept working as-is via the same `--primary`/`--muted`
+ * tokens, which still resolve (to Ledger Quiet's accent/surface-sunken now).
  */
 @keyframes ai-processing-pulse {
   0%,

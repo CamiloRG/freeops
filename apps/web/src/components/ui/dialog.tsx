@@ -6,6 +6,16 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * "Ledger Quiet" dialog — NOT explicitly mocked in the handoff (no dialog
+ * appears in any of the 4 mocked screens). Own extension beyond the literal
+ * spec, flagged in this stage's report: a flat `--paper` panel with a
+ * hairline `1px --line` border (the one defensible extra rule besides the
+ * header/rail edge, since a dialog is inherently a distinct surface), no
+ * radius, no shadow, ink-primary action buttons via the restyled `Button`,
+ * mono `label-mono` treatment on the close affordance. Later stages'
+ * BYOK-connect dialog and DIAN delete warning depend on this looking right.
+ */
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -32,7 +42,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-50 bg-ink/10 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -54,7 +64,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-sm -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-sm -translate-x-1/2 -translate-y-1/2 gap-4 border border-line bg-paper p-6 text-ink duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
           className
         )}
         {...props}
@@ -63,10 +73,10 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-md text-muted-foreground opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none"
+            className="absolute top-5 right-5 text-ink-muted outline-none transition-colors duration-fast ease-out hover:text-ink focus-visible:text-accent disabled:pointer-events-none"
           >
             <X className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">Cerrar</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
@@ -89,7 +99,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end sm:items-center",
         className
       )}
       {...props}
@@ -104,7 +114,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-base font-medium", className)}
+      className={cn("font-sans text-h3 text-ink", className)}
       {...props}
     />
   )
@@ -117,7 +127,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-caption text-ink-soft", className)}
       {...props}
     />
   )

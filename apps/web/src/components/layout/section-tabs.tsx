@@ -15,14 +15,19 @@ export type SectionTabItem = {
  * that highlights the active sub-route. Deliberately plain `<Link>`s
  * styled like tabs (not the Radix `Tabs` primitive, which models
  * client-side-state tab panels, not URL-addressable routes) — matches
- * `Sidebar`'s own `usePathname().startsWith()` active-state convention.
+ * `NavRail`'s own `usePathname().startsWith()` active-state convention.
+ *
+ * "Ledger Quiet" treatment (README "Navigation" → "Tabs"): 12px, gap 22px,
+ * `padding-bottom: 10px`. Active = `--ink` 500 weight + `border-bottom: 2px
+ * solid --accent`. Rest = `--ink-soft` + transparent 2px border (prevents
+ * layout shift on activate/hover) → `--ink` on hover. No pill, no box.
  */
 export function SectionTabs({ items }: { items: SectionTabItem[] }) {
   const pathname = usePathname();
 
   return (
     <nav aria-label="Section" className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-[22px]">
         {items.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
@@ -31,10 +36,10 @@ export function SectionTabs({ items }: { items: SectionTabItem[] }) {
               href={item.href}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
+                "shrink-0 border-b-2 pb-[10px] font-sans text-[12px] whitespace-nowrap transition-colors duration-fast ease-out",
                 isActive
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-b-accent font-medium text-ink"
+                  : "border-b-transparent text-ink-soft hover:text-ink"
               )}
             >
               {item.label}
