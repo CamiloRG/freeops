@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { SummaryEditCard } from "@/components/personal/summary-edit-card";
+import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { brandingUpdateSchema } from "@/lib/validation/personal";
 
 interface BrandingValues {
@@ -15,10 +17,24 @@ interface BrandingValues {
 
 export function BrandingForm({ initial, fullName }: { initial: BrandingValues; fullName: string }) {
   const [values, setValues] = useState(initial);
+  const [savedColors, setSavedColors] = useState({
+    primaryColor: initial.primaryColor,
+    secondaryColor: initial.secondaryColor,
+  });
+  const { editing, setEditing, toggle } = useEditToggle(false);
   const [colorStatus, setColorStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [logoStatus, setLogoStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [logoError, setLogoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleToggle() {
+    if (editing) {
+      // Cancel — discard unsaved color edits (logo changes already saved on upload).
+      setValues((v) => ({ ...v, ...savedColors }));
+      setColorStatus("idle");
+    }
+    toggle();
+  }
 
   async function saveColors(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +52,13 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
     });
-    setColorStatus(res.ok ? "saved" : "error");
+    if (!res.ok) {
+      setColorStatus("error");
+      return;
+    }
+    setColorStatus("saved");
+    setSavedColors({ primaryColor: values.primaryColor, secondaryColor: values.secondaryColor });
+    setEditing(false);
   }
 
   async function handleLogoUpload() {
@@ -65,52 +87,83 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Logo</CardTitle>
-          <CardDescription>PNG, JPG, or SVG, up to 5MB. Applied to generated cuentas de cobro and invoices.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+      <SummaryEditCard
+        title="Logo & brand colors"
+        description="Applied to generated cuentas de cobro and invoices."
+        editing={editing}
+        onToggleEdit={handleToggle}
+        summary={
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
               {values.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={values.logoUrl} alt="Logo" className="size-full object-contain" />
               ) : (
-                <span className="text-xs text-muted-foreground">No logo</span>
+                <span className="text-[10px] text-muted-foreground">No logo</span>
               )}
             </div>
-            <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".png,.jpg,.jpeg,.svg"
-                className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
-              />
-              <div className="flex gap-2">
-                <Button type="button" onClick={handleLogoUpload} disabled={logoStatus === "uploading"}>
-                  {logoStatus === "uploading" ? "Uploading…" : "Upload"}
-                </Button>
-                {values.logoUrl && (
-                  <Button type="button" variant="outline" onClick={handleLogoDelete}>
-                    Remove
-                  </Button>
-                )}
+            <div className="flex gap-6">
+              <div>
+                <div className="text-xs text-muted-foreground">Primary</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className="size-3.5 shrink-0 rounded border border-border"
+                    style={{ backgroundColor: values.primaryColor }}
+                  />
+                  <span className="text-sm font-medium">{values.primaryColor}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Secondary</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className="size-3.5 shrink-0 rounded border border-border"
+                    style={{ backgroundColor: values.secondaryColor }}
+                  />
+                  <span className="text-sm font-medium">{values.secondaryColor}</span>
+                </div>
               </div>
             </div>
           </div>
-          {logoError && <p className="text-sm text-destructive">{logoError}</p>}
-        </CardContent>
-      </Card>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <Label className="mb-1.5">Logo</Label>
+            <div className="flex items-center gap-4">
+              <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                {values.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={values.logoUrl} alt="Logo" className="size-full object-contain" />
+                ) : (
+                  <span className="text-xs text-muted-foreground">No logo</span>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.svg"
+                  className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                />
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" onClick={handleLogoUpload} disabled={logoStatus === "uploading"}>
+                    {logoStatus === "uploading" ? "Uploading…" : "Upload"}
+                  </Button>
+                  {values.logoUrl && (
+                    <Button type="button" variant="outline" size="sm" onClick={handleLogoDelete}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {logoError && <p className="mt-2 text-sm text-destructive">{logoError}</p>}
+            <p className="mt-2 text-xs text-muted-foreground">PNG, JPG, or SVG, up to 5MB.</p>
+          </div>
 
-      <form onSubmit={saveColors}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Brand colors</CardTitle>
-            <CardDescription>Used alongside your logo on generated documents.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+          <form onSubmit={saveColors} className="space-y-4">
+            <div className="grid max-w-md gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="primaryColor">Primary color</Label>
                 <div className="flex items-center gap-2">
@@ -150,12 +203,14 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
               <Button type="submit" disabled={colorStatus === "saving"}>
                 {colorStatus === "saving" ? "Saving…" : "Save colors"}
               </Button>
-              {colorStatus === "saved" && <span className="text-sm text-success">Saved.</span>}
+              {/* No inline "Saved." message — a successful save collapses this
+                  form back to the summary view, and the refreshed summary IS
+                  the confirmation (same convention as Banking). */}
               {colorStatus === "error" && <span className="text-sm text-destructive">Use a 6-digit hex color.</span>}
             </div>
-          </CardContent>
-        </Card>
-      </form>
+          </form>
+        </div>
+      </SummaryEditCard>
 
       <Card>
         <CardHeader>
