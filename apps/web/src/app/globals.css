@@ -195,6 +195,33 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * AiProcessingCard's icon ring pulse + progress-bar sweep — ported from
+ * the approved Personal-module redesign mockup (Processing.dc.html).
+ * Referenced via Tailwind arbitrary-value `animate-[...]` utilities in
+ * `components/ai/ai-processing-card.tsx`.
+ */
+@keyframes ai-processing-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes ai-processing-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

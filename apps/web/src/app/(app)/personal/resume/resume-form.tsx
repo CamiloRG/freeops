@@ -15,6 +15,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SummaryEditCard } from "@/components/personal/summary-edit-card";
+import { useEditToggle } from "@/components/personal/use-edit-toggle";
+import { CollapsibleEntryRow } from "@/components/personal/collapsible-entry-row";
+import { useSingleOpen } from "@/components/personal/use-single-open";
+import { AiProcessingCard, type AiProcessingStatus } from "@/components/ai/ai-processing-card";
 import { resumeUpdateSchema } from "@/lib/validation/personal";
 
 interface ResumeEntry {
@@ -52,6 +57,11 @@ interface AiImportStatus {
 
 const ACCEPTED_IMPORT_TYPES = "application/pdf,image/png,image/jpeg";
 
+// Staged copy for AiProcessingCard — reflects the real rough order of
+// work (read the file → extract fields → wrap up), never a fabricated
+// percentage.
+const IMPORT_STAGES = ["Reading your document…", "Extracting skills & experience…", "Almost done…"];
+
 function emptyEntry(order: number): ResumeEntry {
   return {
     source: "manual",
@@ -63,6 +73,24 @@ function emptyEntry(order: number): ResumeEntry {
     endDate: "",
     displayOrder: order,
   };
+}
+
+function entryKey(entry: ResumeEntry, index: number) {
+  return entry.id ?? `new-${index}`;
+}
+
+function formatEntryDate(value: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+function formatEntryDates(entry: ResumeEntry) {
+  const start = formatEntryDate(entry.startDate);
+  const end = formatEntryDate(entry.endDate);
+  if (!start && !end) return "No dates";
+  return `${start ?? "—"} — ${end ?? "Present"}`;
 }
 
 export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImport: AiImportStatus }) {
@@ -77,11 +105,16 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
   const [exportState, setExportState] = useState<"idle" | "generating" | "done" | "error">("idle");
   const [pdfUrl, setPdfUrl] = useState(initial.lastGeneratedPdfUrl);
 
+  const { editing: editingBasics, toggle: toggleBasics } = useEditToggle(false);
+  const { isOpen: isEntryOpen, toggle: toggleEntry, setOpenKey: setOpenEntryKey } = useSingleOpen<string>(null);
+
   // --- AI-assisted resume import state (user-proposed feature beyond
-  // app_spec.md's original scope, see the codebase-memory-mcp ADR) -------
+  // app_spec.md's original scope, see the codebase-memory-mcp ADR). The
+  // AiProcessingCard's `status` is driven entirely by this real request's
+  // actual lifecycle below — never a scripted timer. -------------------
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiStatus, setAiStatus] = useState(aiImport);
-  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<AiProcessingStatus>("idle");
   const [importError, setImportError] = useState<string | null>(null);
   const [byokDialogOpen, setByokDialogOpen] = useState(false);
   const [byokApiKey, setByokApiKey] = useState("");
@@ -93,14 +126,16 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
 
   async function handleImportResume(file: File) {
     setImportError(null);
-    setImporting(true);
+    // Flips the moment the real request starts — AiProcessingCard's stage
+    // clock begins ticking here, not on a fixed demo duration.
+    setImportStatus("processing");
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch("/api/v1/me/resume/extract", { method: "POST", body: formData });
     const body = await res.json().catch(() => null);
-    setImporting(false);
 
     if (!res.ok || !body) {
+      setImportStatus("error");
       setImportError(
         body?.error?.message ?? "Couldn't read that file — try a clearer scan/PDF or fill in the fields manually."
       );
@@ -129,6 +164,9 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
     if (body.quota) {
       setAiStatus((s) => ({ ...s, remaining: s.limit - body.quota.used }));
     }
+    // Transitions to "done" only now that the real response has actually
+    // arrived.
+    setImportStatus("done");
   }
 
   async function handleConnectByok() {
@@ -180,6 +218,19 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
 
   function updateEntry(index: number, patch: Partial<ResumeEntry>) {
     setEntries((list) => list.map((e, i) => (i === index ? { ...e, ...patch } : e)));
+  }
+
+  function addEntry() {
+    setEntries((list) => {
+      const next = [...list, emptyEntry(list.length)];
+      setOpenEntryKey(entryKey(next[next.length - 1], next.length - 1));
+      return next;
+    });
+  }
+
+  function removeEntry(index: number) {
+    setEntries((list) => list.filter((_, i) => i !== index));
+    setOpenEntryKey(null);
   }
 
   async function handleSave() {
@@ -258,33 +309,60 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Import from resume</CardTitle>
-          <CardDescription>
-            Upload a resume and Claude will suggest fields below — you can edit anything before saving.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_IMPORT_TYPES}
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) handleImportResume(file);
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing || quotaExhausted}
-            >
-              {importing ? "Reading resume…" : "Choose file & import"}
-            </Button>
+        <CardContent className="space-y-3 pt-4">
+          <AiProcessingCard
+            status={importStatus}
+            stages={IMPORT_STAGES}
+            idle={
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Import from resume</div>
+                  <div className="text-sm text-muted-foreground">
+                    Upload a PDF, JPG, or PNG and we&apos;ll fill in the fields below for you to review.
+                  </div>
+                </div>
+                <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={quotaExhausted}>
+                  Upload resume
+                </Button>
+              </div>
+            }
+            done={
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Fields updated below</div>
+                  <div className="text-sm text-muted-foreground">
+                    Nothing&apos;s saved yet — review and edit before saving.
+                  </div>
+                </div>
+                <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Import another
+                </Button>
+              </div>
+            }
+            error={
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-destructive">Couldn&apos;t import that file</div>
+                  <div className="text-sm text-muted-foreground">{importError}</div>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Try again
+                </Button>
+              </div>
+            }
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPTED_IMPORT_TYPES}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) handleImportResume(file);
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             {aiStatus.byokConnected ? (
               <Badge variant="secondary">Using your own Anthropic key ({aiStatus.byokKeyHint})</Badge>
             ) : (
@@ -311,16 +389,33 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
               to keep importing without a monthly limit.
             </p>
           )}
-          {importError && <p className="text-sm text-destructive">{importError}</p>}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resume / CV</CardTitle>
-          <CardDescription>Sectioned editor — summary, skills, experience. Export as PDF when ready.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SummaryEditCard
+        title="Basics"
+        description="Headline, summary, and skills."
+        editing={editingBasics}
+        onToggleEdit={toggleBasics}
+        editLabel="Edit"
+        cancelLabel="Done"
+        summary={
+          <div>
+            <div className="text-sm font-semibold">{headline || "No headline yet"}</div>
+            {summary && <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">{summary}</p>}
+            {skills.length > 0 && (
+              <div className="mt-3.5 flex flex-wrap gap-1.5">
+                {skills.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="headline">Headline</Label>
             <Input id="headline" value={headline} onChange={(e) => setHeadline(e.target.value)} />
@@ -365,88 +460,108 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SummaryEditCard>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
             <CardTitle>Experience</CardTitle>
-            <CardDescription>Manual entries or pulled in from completed Business-section projects.</CardDescription>
+            <CardDescription>Click an entry to edit it. Most recent first.</CardDescription>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={handlePullFromProjects} disabled={syncing}>
             {syncing ? "Pulling…" : "Pull from Projects"}
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-1">
           {entries.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="px-1 pb-2 text-sm text-muted-foreground">
               No experience entries yet. Add one manually, or use &quot;Pull from Projects&quot; once you
               have completed projects in the Business section.
             </p>
           )}
-          {entries.map((entry, index) => (
-            <div key={entry.id ?? index} className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
-                {entry.source === "project" && <Badge variant="secondary">From project</Badge>}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => setEntries((list) => list.filter((_, i) => i !== index))}
-                >
-                  Remove
-                </Button>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Title</Label>
-                  <Input value={entry.title} onChange={(e) => updateEntry(index, { title: e.target.value })} />
+          {entries.map((entry, index) => {
+            const key = entryKey(entry, index);
+            return (
+              <CollapsibleEntryRow
+                key={key}
+                expanded={isEntryOpen(key)}
+                onToggle={() => toggleEntry(key)}
+                summary={
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-semibold">{entry.title || "Untitled role"}</span>
+                      {entry.clientName && (
+                        <span className="text-sm text-muted-foreground"> · {entry.clientName}</span>
+                      )}
+                      {entry.source === "project" && (
+                        <Badge variant="secondary" className="ml-2 align-middle">
+                          From project
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-xs text-muted-foreground">{formatEntryDates(entry)}</div>
+                  </div>
+                }
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Title</Label>
+                    <Input value={entry.title} onChange={(e) => updateEntry(index, { title: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Client</Label>
+                    <Input
+                      value={entry.clientName}
+                      onChange={(e) => updateEntry(index, { clientName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Start date</Label>
+                    <Input
+                      type="date"
+                      value={entry.startDate}
+                      onChange={(e) => updateEntry(index, { startDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>End date</Label>
+                    <Input
+                      type="date"
+                      value={entry.endDate}
+                      onChange={(e) => updateEntry(index, { endDate: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Client</Label>
-                  <Input
-                    value={entry.clientName}
-                    onChange={(e) => updateEntry(index, { clientName: e.target.value })}
+                  <Label>Description</Label>
+                  <Textarea
+                    rows={3}
+                    value={entry.description}
+                    onChange={(e) => updateEntry(index, { description: e.target.value })}
                   />
                 </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Start date</Label>
-                  <Input
-                    type="date"
-                    value={entry.startDate}
-                    onChange={(e) => updateEntry(index, { startDate: e.target.value })}
-                  />
+                <div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="pl-0 text-destructive hover:text-destructive"
+                    onClick={() => removeEntry(index)}
+                  >
+                    Remove entry
+                  </Button>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>End date</Label>
-                  <Input
-                    type="date"
-                    value={entry.endDate}
-                    onChange={(e) => updateEntry(index, { endDate: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <Textarea
-                  rows={3}
-                  value={entry.description}
-                  onChange={(e) => updateEntry(index, { description: e.target.value })}
-                />
-              </div>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setEntries((list) => [...list, emptyEntry(list.length)])}
-          >
-            Add entry
-          </Button>
+              </CollapsibleEntryRow>
+            );
+          })}
+          <div className="pt-2">
+            <Button type="button" variant="outline" onClick={addEntry}>
+              + Add entry
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
