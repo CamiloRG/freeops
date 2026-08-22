@@ -5,10 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { InlineNotice } from "@/components/ui/inline-notice";
+import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { SummaryField, SummaryGrid } from "@/components/personal/summary-grid";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
+import { useSaveStatus } from "@/hooks/use-save-status";
+import { isDirty } from "@/lib/form-dirty";
 import { profileUpdateSchema } from "@/lib/validation/personal";
+import { usePersonalHeaderStatus } from "../personal-header-context";
 
 interface ProfileFormValues {
   fullName: string;
@@ -20,16 +25,27 @@ interface ProfileFormValues {
   bio: string;
 }
 
+/**
+ * Personal / Perfil — one of the two screens pixel-mocked in the design
+ * handoff (README "Screens" → "3. App — Personal / Profile"). Fields,
+ * grid layout, and action row match the mock exactly; the collapsed
+ * "Editar" button (SummaryEditCard's header, shown when not editing) is
+ * an extrapolation the mock doesn't capture — its own frozen frame only
+ * shows the editing state.
+ */
 export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
   const [saved, setSaved] = useState(initial);
   const [values, setValues] = useState(initial);
   const { editing, setEditing, toggle } = useEditToggle(false);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveStatus = useSaveStatus();
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
+
+  const dirty = isDirty(values, saved);
 
   function set<K extends keyof ProfileFormValues>(key: K, value: ProfileFormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
-    setStatus("idle");
   }
 
   function handleToggle() {
@@ -37,7 +53,7 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
       // Cancel — discard any unsaved edits.
       setValues(saved);
       setErrors({});
-      setStatus("idle");
+      saveStatus.reset();
     }
     toggle();
   }
@@ -51,119 +67,119 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
         fieldErrors[String(issue.path[0])] = issue.message;
       }
       setErrors(fieldErrors);
-      setStatus("error");
+      saveStatus.markError();
       return;
     }
     setErrors({});
-    setStatus("saving");
+    saveStatus.markSaving();
     const res = await fetch("/api/v1/me/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      setStatus("error");
+      saveStatus.markError("No se pudo guardar. Intenta de nuevo.");
       return;
     }
-    setStatus("saved");
+    saveStatus.markSaved();
     setSaved(values);
     setEditing(false);
   }
 
   return (
     <SummaryEditCard
-      title="Profile & personal data"
-      description="Your name and contact details, shown on generated documents."
+      title={<span className="text-h2 font-medium text-ink">Perfil y datos personales</span>}
+      description={<span className="text-caption text-ink-muted">Aparecen en cada documento que generas.</span>}
       editing={editing}
       onToggleEdit={handleToggle}
+      cancelLabel={null}
+      contentClassName="pt-[30px]"
       summary={
         <SummaryGrid>
-          <SummaryField label="Full name" value={saved.fullName} />
-          <SummaryField label="Phone" value={saved.phone || "—"} />
-          <SummaryField label="Headline" value={saved.headline || "—"} />
-          <SummaryField label="City" value={saved.city || "—"} />
-          {saved.bio && (
-            <div className="sm:col-span-2">
-              <div className="text-xs text-muted-foreground">Bio</div>
-              <p className="mt-0.5 text-sm leading-relaxed">{saved.bio}</p>
-            </div>
-          )}
+          <SummaryField label="Nombre completo" value={saved.fullName} />
+          <SummaryField label="Nombre visible" value={saved.displayName} />
+          <SummaryField label="Teléfono" value={saved.phone} mono />
+          <SummaryField label="Ciudad" value={saved.city} />
+          <SummaryField label="Titular" value={saved.headline} full />
+          <SummaryField label="Bio" value={saved.bio} full />
         </SummaryGrid>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <form onSubmit={handleSubmit}>
+        <SummaryGrid>
           <div className="space-y-1.5">
-            <Label htmlFor="fullName">Full name</Label>
+            <Label htmlFor="fullName">Nombre completo</Label>
             <Input
               id="fullName"
               value={values.fullName}
               onChange={(e) => set("fullName", e.target.value)}
               aria-invalid={!!errors.fullName}
             />
-            {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
+            {errors.fullName && <p className="mt-1.5 font-mono text-[11px] text-danger">{errors.fullName}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="displayName">Display name</Label>
+            <Label htmlFor="displayName">Nombre visible</Label>
             <Input
               id="displayName"
-              placeholder="Optional — shown instead of full name"
+              placeholder="Opcional — se muestra en vez del nombre completo"
               value={values.displayName}
               onChange={(e) => set("displayName", e.target.value)}
             />
           </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Phone</Label>
+            <Label htmlFor="phone">Teléfono</Label>
             <Input
               id="phone"
               placeholder="+57 300 000 0000"
               value={values.phone}
               onChange={(e) => set("phone", e.target.value)}
               aria-invalid={!!errors.phone}
+              className="font-mono text-data-mono"
             />
-            {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+            {errors.phone && <p className="mt-1.5 font-mono text-[11px] text-danger">{errors.phone}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="city">City</Label>
+            <Label htmlFor="city">Ciudad</Label>
             <Input id="city" value={values.city} onChange={(e) => set("city", e.target.value)} />
           </div>
-        </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="headline">Titular</Label>
+            <Input
+              id="headline"
+              placeholder="p. ej. Desarrollador full-stack & consultor de producto"
+              value={values.headline}
+              onChange={(e) => set("headline", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              rows={4}
+              value={values.bio}
+              onChange={(e) => set("bio", e.target.value)}
+              aria-invalid={!!errors.bio}
+            />
+            {errors.bio && <p className="mt-1.5 font-mono text-[11px] text-danger">{errors.bio}</p>}
+          </div>
+        </SummaryGrid>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="headline">Headline</Label>
-          <Input
-            id="headline"
-            placeholder="e.g. Full-stack developer & product consultant"
-            value={values.headline}
-            onChange={(e) => set("headline", e.target.value)}
+        {saveStatus.status === "error" && (
+          <InlineNotice
+            variant="danger"
+            title="ERROR"
+            description={saveStatus.errorMessage ?? "Revisa los campos marcados."}
+            className="mt-[26px]"
           />
-        </div>
+        )}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="bio">Bio</Label>
-          <Textarea
-            id="bio"
-            rows={4}
-            value={values.bio}
-            onChange={(e) => set("bio", e.target.value)}
-            aria-invalid={!!errors.bio}
-          />
-          {errors.bio && <p className="text-xs text-destructive">{errors.bio}</p>}
-        </div>
-
-        <div className="flex items-center gap-3 pt-2">
-          <Button type="submit" disabled={status === "saving"}>
-            {status === "saving" ? "Saving…" : "Save changes"}
+        <div className="mt-8 flex items-center gap-4">
+          <Button type="submit" disabled={!dirty || saveStatus.status === "saving"}>
+            {saveStatus.status === "saving" ? "Guardando…" : "Guardar"}
           </Button>
-          {/* No inline "Saved." message — a successful save collapses this
-              form back to the summary view, and the refreshed summary IS
-              the confirmation (same convention as Banking). */}
-          {status === "error" && Object.keys(errors).length === 0 && (
-            <span className="text-sm text-destructive">Couldn&apos;t save — try again.</span>
-          )}
+          <Button type="button" variant="ghost" onClick={handleToggle}>
+            Descartar
+          </Button>
         </div>
       </form>
     </SummaryEditCard>

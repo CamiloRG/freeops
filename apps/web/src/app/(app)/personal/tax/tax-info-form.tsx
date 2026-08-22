@@ -24,10 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { InlineNotice } from "@/components/ui/inline-notice";
+import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { SummaryField, SummaryGrid } from "@/components/personal/summary-grid";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
+import { useSaveStatus } from "@/hooks/use-save-status";
+import { isDirty } from "@/lib/form-dirty";
 import { taxInfoUpsertSchema } from "@/lib/validation/personal";
+import { usePersonalHeaderStatus } from "../personal-header-context";
 
 type TaxIdType = "CC" | "NIT" | "CE" | "Pasaporte";
 type TaxRegime = "regimen_simple" | "regimen_ordinario" | "no_responsable";
@@ -53,7 +58,7 @@ interface TaxDocument {
 const DOCUMENT_TYPE_LABEL: Record<TaxDocument["type"], string> = {
   rut: "RUT",
   camara_comercio: "Cámara de Comercio",
-  other: "Other",
+  other: "Otro",
 };
 
 const TAX_REGIME_LABEL: Record<TaxRegime, string> = {
@@ -73,11 +78,20 @@ const EMPTY_VALUES: TaxInfoValues = {
 };
 
 function maskTaxId(taxIdNumber: string) {
-  if (!taxIdNumber) return "—";
+  if (!taxIdNumber) return "";
   const last4 = taxIdNumber.slice(-4);
   return `••• ${last4}`;
 }
 
+/**
+ * Personal / Tributario — NOT pixel-mocked in the design handoff (only
+ * Profile and Banking are). Extrapolated using the exact same tokens,
+ * `SummaryEditCard`/`SummaryGrid` field-grid conventions, `SaveStatusLine`/
+ * `InlineNotice` save-feedback pattern, and Spanish copy the two mocked
+ * screens establish — field labels/layout below are this stage's own
+ * judgment call, not invented visual patterns. RUT/Cámara de Comercio/NIT
+ * terminology matches what's already used elsewhere in this codebase.
+ */
 export function TaxInfoForm({
   initial,
   documents,
@@ -88,7 +102,7 @@ export function TaxInfoForm({
   const [saved, setSaved] = useState<TaxInfoValues | null>(initial);
   const [values, setValues] = useState<TaxInfoValues>(initial ?? EMPTY_VALUES);
   const { editing, setEditing, toggle } = useEditToggle(!initial);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveStatus = useSaveStatus();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [docs, setDocs] = useState(documents);
   const [uploadType, setUploadType] = useState<TaxDocument["type"]>("rut");
@@ -99,16 +113,19 @@ export function TaxInfoForm({
     null
   );
 
+  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
+
+  const dirty = isDirty(values, saved ?? EMPTY_VALUES);
+
   function set<K extends keyof TaxInfoValues>(key: K, value: TaxInfoValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
-    setStatus("idle");
   }
 
   function handleToggle() {
     if (editing && saved) {
       setValues(saved);
       setErrors({});
-      setStatus("idle");
+      saveStatus.reset();
     }
     toggle();
   }
@@ -120,21 +137,21 @@ export function TaxInfoForm({
       const fieldErrors: Record<string, string> = {};
       for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
       setErrors(fieldErrors);
-      setStatus("error");
+      saveStatus.markError();
       return;
     }
     setErrors({});
-    setStatus("saving");
+    saveStatus.markSaving();
     const res = await fetch("/api/v1/me/tax-info", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      setStatus("error");
+      saveStatus.markError("No se pudo guardar. Intenta de nuevo.");
       return;
     }
-    setStatus("saved");
+    saveStatus.markSaved();
     setSaved(values);
     setEditing(false);
   }
@@ -151,7 +168,7 @@ export function TaxInfoForm({
     const body = await res.json().catch(() => null);
     setUploading(false);
     if (!res.ok) {
-      setUploadError(body?.error?.message ?? "Upload failed.");
+      setUploadError(body?.error?.message ?? "No se pudo subir el archivo.");
       return;
     }
     setDocs((d) => [
@@ -183,32 +200,37 @@ export function TaxInfoForm({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-9">
       <SummaryEditCard
-        title="Tax information"
-        description="Your tax ID and DIAN-relevant details, used on generated documents."
+        title={<span className="text-h2 font-medium text-ink">Información tributaria</span>}
+        description={
+          <span className="text-caption text-ink-muted">
+            Tu identificación tributaria y datos relevantes para la DIAN, usados en los documentos que generas.
+          </span>
+        }
         editing={editing}
         onToggleEdit={handleToggle}
-        cancelLabel={saved ? "Cancel" : null}
+        cancelLabel={null}
+        contentClassName="pt-[28px]"
         summary={
           saved ? (
             <SummaryGrid>
-              <SummaryField label="Tax ID type" value={saved.taxIdType} />
-              <SummaryField label="Tax ID number" value={maskTaxId(saved.taxIdNumber)} />
-              <SummaryField label="Tax regime" value={saved.taxRegime ? TAX_REGIME_LABEL[saved.taxRegime] : "—"} />
-              <SummaryField label="IVA responsible" value={saved.isIvaResponsible ? "Yes" : "No"} />
-              <SummaryField label="Gran contribuyente" value={saved.isGranContribuyente ? "Yes" : "No"} />
-              <SummaryField label="CIIU code" value={saved.ciiuCode || "—"} />
+              <SummaryField label="Tipo de identificación" value={saved.taxIdType} />
+              <SummaryField label="Número de identificación" value={maskTaxId(saved.taxIdNumber)} mono />
+              <SummaryField label="Régimen tributario" value={saved.taxRegime ? TAX_REGIME_LABEL[saved.taxRegime] : ""} />
+              <SummaryField label="Responsable de IVA" value={saved.isIvaResponsible ? "Sí" : "No"} />
+              <SummaryField label="Gran contribuyente" value={saved.isGranContribuyente ? "Sí" : "No"} />
+              <SummaryField label="Código CIIU" value={saved.ciiuCode} />
             </SummaryGrid>
           ) : (
-            <p className="text-sm text-muted-foreground">No tax information saved yet.</p>
+            <p className="text-body text-ink-soft">Todavía no hay información tributaria guardada.</p>
           )
         }
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleSubmit}>
+          <SummaryGrid>
             <div className="space-y-1.5">
-              <Label htmlFor="taxIdType">Tax ID type</Label>
+              <Label htmlFor="taxIdType">Tipo de identificación</Label>
               <Select value={values.taxIdType} onValueChange={(v) => set("taxIdType", v as TaxIdType)}>
                 <SelectTrigger id="taxIdType" className="w-full">
                   <SelectValue />
@@ -222,35 +244,41 @@ export function TaxInfoForm({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="taxIdNumber">Tax ID number</Label>
+              <Label htmlFor="taxIdNumber">Número de identificación</Label>
               <Input
                 id="taxIdNumber"
                 value={values.taxIdNumber}
                 onChange={(e) => set("taxIdNumber", e.target.value)}
                 aria-invalid={!!errors.taxIdNumber}
+                className="font-mono text-data-mono"
               />
-              {errors.taxIdNumber && <p className="text-xs text-destructive">{errors.taxIdNumber}</p>}
+              {errors.taxIdNumber && <p className="mt-1.5 font-mono text-[11px] text-danger">{errors.taxIdNumber}</p>}
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="taxRegime">Tax regime</Label>
-            <Select
-              value={values.taxRegime ?? undefined}
-              onValueChange={(v) => set("taxRegime", v as TaxRegime)}
-            >
-              <SelectTrigger id="taxRegime" className="w-full">
-                <SelectValue placeholder="Select a regime" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="regimen_simple">Régimen Simple</SelectItem>
-                <SelectItem value="regimen_ordinario">Régimen Ordinario</SelectItem>
-                <SelectItem value="no_responsable">No responsable</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:gap-8">
+            <div className="space-y-1.5">
+              <Label htmlFor="taxRegime">Régimen tributario</Label>
+              <Select value={values.taxRegime ?? undefined} onValueChange={(v) => set("taxRegime", v as TaxRegime)}>
+                <SelectTrigger id="taxRegime" className="w-full">
+                  <SelectValue placeholder="Selecciona un régimen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regimen_simple">Régimen Simple</SelectItem>
+                  <SelectItem value="regimen_ordinario">Régimen Ordinario</SelectItem>
+                  <SelectItem value="no_responsable">No responsable</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ciiuCode">Código CIIU</Label>
+              <Input id="ciiuCode" value={values.ciiuCode} onChange={(e) => set("ciiuCode", e.target.value)} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="fiscalAddress">Dirección fiscal</Label>
+              <Input
+                id="fiscalAddress"
+                value={values.fiscalAddress}
+                onChange={(e) => set("fiscalAddress", e.target.value)}
+              />
+            </div>
             <div className="flex items-center gap-2.5">
               <Switch
                 id="isGranContribuyente"
@@ -265,46 +293,39 @@ export function TaxInfoForm({
                 checked={values.isIvaResponsible}
                 onCheckedChange={(v) => set("isIvaResponsible", v)}
               />
-              <Label htmlFor="isIvaResponsible">IVA responsible</Label>
+              <Label htmlFor="isIvaResponsible">Responsable de IVA</Label>
             </div>
-          </div>
+          </SummaryGrid>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="ciiuCode">CIIU code</Label>
-              <Input id="ciiuCode" value={values.ciiuCode} onChange={(e) => set("ciiuCode", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="fiscalAddress">Fiscal address</Label>
-              <Input
-                id="fiscalAddress"
-                value={values.fiscalAddress}
-                onChange={(e) => set("fiscalAddress", e.target.value)}
-              />
-            </div>
-          </div>
+          {saveStatus.status === "error" && (
+            <InlineNotice
+              variant="danger"
+              title="ERROR"
+              description={saveStatus.errorMessage ?? "Revisa los campos marcados."}
+              className="mt-[26px]"
+            />
+          )}
 
-          <div className="flex items-center gap-3 pt-2">
-            <Button type="submit" disabled={status === "saving"}>
-              {status === "saving" ? "Saving…" : "Save tax information"}
+          <div className="mt-8 flex items-center gap-4">
+            <Button type="submit" disabled={!dirty || saveStatus.status === "saving"}>
+              {saveStatus.status === "saving" ? "Guardando…" : "Guardar"}
             </Button>
-            {/* No inline "Saved." message — a successful save collapses this
-                form back to the summary view, and the refreshed summary IS
-                the confirmation (same convention as Banking). */}
-            {status === "error" && Object.keys(errors).length === 0 && (
-              <span className="text-sm text-destructive">Couldn&apos;t save — try again.</span>
-            )}
+            <Button type="button" variant="ghost" onClick={handleToggle}>
+              Descartar
+            </Button>
           </div>
         </form>
       </SummaryEditCard>
 
       <Card>
         <CardHeader>
-          <CardTitle>Supporting documents</CardTitle>
-          <CardDescription>Upload your RUT, Cámara de Comercio, or other tax documents (PDF/JPG/PNG/DOCX, ≤10MB).</CardDescription>
+          <CardTitle className="text-h3 text-ink">Documentos de soporte</CardTitle>
+          <CardDescription>
+            Sube tu RUT, Cámara de Comercio, u otros documentos tributarios (PDF/JPG/PNG/DOCX, máx. 10MB).
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <CardContent className="space-y-4 pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Select value={uploadType} onValueChange={(v) => setUploadType(v as TaxDocument["type"])}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
@@ -312,35 +333,38 @@ export function TaxInfoForm({
               <SelectContent>
                 <SelectItem value="rut">RUT</SelectItem>
                 <SelectItem value="camara_comercio">Cámara de Comercio</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="other">Otro</SelectItem>
               </SelectContent>
             </Select>
             <input
               ref={fileInputRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.docx"
-              className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+              className="w-full text-body text-ink-soft file:mr-3 file:border-0 file:bg-transparent file:font-sans file:text-ui file:text-ink"
             />
             <Button type="button" onClick={handleUpload} disabled={uploading}>
-              {uploading ? "Uploading…" : "Upload"}
+              {uploading ? "Subiendo…" : "Subir"}
             </Button>
           </div>
-          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+          {uploadError && <p className="font-mono text-[11px] text-danger">{uploadError}</p>}
 
           {docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+            <p className="text-body text-ink-soft">Todavía no hay documentos subidos.</p>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <ul>
               {docs.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                <li
+                  key={doc.id}
+                  className="flex items-center justify-between gap-3 px-1 py-[14px] text-body-sm transition-colors duration-fast ease-out hover:bg-surface-sunken"
+                >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <Badge variant="secondary">{DOCUMENT_TYPE_LABEL[doc.type]}</Badge>
-                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">
+                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="truncate text-ink underline decoration-line underline-offset-2 hover:text-accent">
                       {doc.fileName}
                     </a>
                   </div>
                   <Button type="button" variant="ghost" size="sm" onClick={() => requestDelete(doc.id)}>
-                    Delete
+                    Eliminar
                   </Button>
                 </li>
               ))}
@@ -352,12 +376,12 @@ export function TaxInfoForm({
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar este documento?</AlertDialogTitle>
             <AlertDialogDescription>{pendingDelete?.warning}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete anyway</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Eliminar de todos modos</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
