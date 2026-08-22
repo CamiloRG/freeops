@@ -106,8 +106,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
     if (result.status === "needs_confirm") {
       return NextResponse.json({
+        // "Ledger Quiet" stage 3: translated to Spanish — pure user-facing
+        // copy, not logic. See `deletion-warnings.ts`'s `DIAN_RETENTION_WARNING`
+        // for the same treatment; status codes/response shape unchanged.
         warning:
-          "This project has contract documents typically retained for DIAN audit (5 years). Delete anyway?",
+          "Este proyecto tiene documentos de contrato que normalmente se conservan para auditoría de la DIAN (5 años). ¿Eliminar de todos modos?",
         confirmUrl: `${request.nextUrl.pathname}?confirm=true`,
       });
     }

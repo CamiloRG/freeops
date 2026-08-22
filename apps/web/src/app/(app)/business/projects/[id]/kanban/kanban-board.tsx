@@ -13,11 +13,11 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InlineNotice } from "@/components/ui/inline-notice";
 import {
   Select,
   SelectContent,
@@ -37,12 +37,12 @@ import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
 import type { KanbanColumn as KanbanColumnData, KanbanTask } from "./kanban-types";
 
-const MOVE_ERROR = "Couldn't move task — check your connection and try again.";
+const MOVE_ERROR = "No se pudo mover la tarea — revisa tu conexión e intenta de nuevo.";
 
 function ColumnSkeleton() {
   return (
-    <div className="flex w-72 shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-2.5">
-      <Skeleton className="h-5 w-24" />
+    <div className="flex w-72 shrink-0 flex-col gap-2.5 bg-surface-sunken p-3">
+      <Skeleton className="w-24" />
       <Skeleton className="h-16 w-full" />
       <Skeleton className="h-16 w-full" />
     </div>
@@ -55,6 +55,32 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const [columns, setColumns] = useState<KanbanColumnData[]>([]);
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null);
   const [activeColumn, setActiveColumn] = useState<KanbanColumnData | null>(null);
+
+  // "Ledger Quiet" stage 3: the handoff forbids toasts outright ("no
+  // toasts — errors surface as an inline notice above the action row").
+  // A kanban board has no single "action row" (a move/add/delete can come
+  // from any card or column), so this is one shared error-display slot
+  // for the whole board, rendered once near the top of the board's content
+  // area (below the breadcrumb/tabs the layout already owns, above the
+  // columns) rather than per-card/per-column. Cleared automatically the
+  // next time ANY mutation on this board succeeds (so a stale error
+  // doesn't linger once the user has proven the connection works again),
+  // AND dismissible directly via a small text affordance in the notice
+  // itself — both, rather than picking just one, since an error the user
+  // wants to acknowledge and move on from shouldn't have to wait on
+  // another action succeeding first. The optimistic-update-then-rollback
+  // logic itself is completely unchanged from the pre-migration version —
+  // only how the failure is surfaced changed (`toast.error(...)` calls
+  // replaced by `showBoardError`/state below).
+  const [boardError, setBoardError] = useState<string | null>(null);
+
+  function showBoardError(message: string) {
+    setBoardError(message);
+  }
+
+  function clearBoardError() {
+    setBoardError(null);
+  }
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
@@ -124,7 +150,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     });
     if (!res.ok) {
       setColumns(rollback);
-      toast.error("Couldn't reorder columns — check your connection and try again.");
+      showBoardError("No se pudo reordenar las columnas — revisa tu conexión e intenta de nuevo.");
+    } else {
+      clearBoardError();
     }
   }
 
@@ -136,7 +164,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     });
     if (!res.ok) {
       setColumns(rollback);
-      toast.error(MOVE_ERROR);
+      showBoardError(MOVE_ERROR);
+    } else {
+      clearBoardError();
     }
   }
 
@@ -230,9 +260,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) {
       setColumns(rollback);
-      toast.error("Couldn't add that task — try again.");
+      showBoardError("No se pudo agregar esa tarea — intenta de nuevo.");
       return;
     }
+    clearBoardError();
     setColumns((cols) =>
       cols.map((c) =>
         c.id === columnId ? { ...c, tasks: c.tasks.map((t) => (t.id === tempId ? { ...body } : t)) } : c
@@ -246,7 +277,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const res = await fetch(`/api/v1/board/tasks/${taskId}`, { method: "DELETE" });
     if (!res.ok && res.status !== 204) {
       setColumns(rollback);
-      toast.error("Couldn't delete that task — try again.");
+      showBoardError("No se pudo eliminar esa tarea — intenta de nuevo.");
+    } else {
+      clearBoardError();
     }
   }
 
@@ -262,9 +295,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     });
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) {
-      toast.error("Couldn't add that column — try again.");
+      showBoardError("No se pudo agregar esa columna — intenta de nuevo.");
       return;
     }
+    clearBoardError();
     setColumns((cols) => [...cols, { ...body, tasks: [] }]);
   }
 
@@ -278,7 +312,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     });
     if (!res.ok) {
       setColumns(rollback);
-      toast.error("Couldn't rename that column — try again.");
+      showBoardError("No se pudo renombrar esa columna — intenta de nuevo.");
+    } else {
+      clearBoardError();
     }
   }
 
@@ -303,7 +339,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       });
       if (!res.ok) {
         setColumns(rollback);
-        toast.error("Couldn't delete that column — try again.");
+        showBoardError("No se pudo eliminar esa columna — intenta de nuevo.");
+      } else {
+        clearBoardError();
       }
       void destColumn;
     } else {
@@ -311,7 +349,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       const res = await fetch(`/api/v1/board/columns/${target.id}`, { method: "DELETE" });
       if (!res.ok && res.status !== 204) {
         setColumns(rollback);
-        toast.error("Couldn't delete that column — try again.");
+        showBoardError("No se pudo eliminar esa columna — intenta de nuevo.");
+      } else {
+        clearBoardError();
       }
     }
     setMoveTasksTo("");
@@ -331,10 +371,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <p className="text-sm font-medium">Couldn&apos;t load the board</p>
-          <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
-          <Button type="button" className="mt-4" onClick={retryLoadBoard}>
-            Retry
+          <p className="text-h3 text-ink">No se pudo cargar el tablero</p>
+          <p className="mt-1.5 text-caption text-ink-muted">Revisa tu conexión e intenta de nuevo.</p>
+          <Button type="button" variant="outline" className="mt-4" onClick={retryLoadBoard}>
+            Reintentar
           </Button>
         </CardContent>
       </Card>
@@ -345,8 +385,25 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
   return (
     <div>
+      {boardError && (
+        <InlineNotice
+          variant="danger"
+          title="ERROR"
+          description={boardError}
+          className="mb-4 max-w-none"
+        >
+          <button
+            type="button"
+            onClick={clearBoardError}
+            className="mt-2 font-mono text-[11px] text-danger underline decoration-danger underline-offset-2 hover:text-ink"
+          >
+            descartar
+          </button>
+        </InlineNotice>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex items-start gap-3 overflow-x-auto pb-2" role="application" aria-label="Kanban board">
+        <div className="flex items-start gap-3 overflow-x-auto pb-2" role="application" aria-label="Tablero kanban">
           <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
             {columns.map((column) => (
               <KanbanColumn
@@ -362,8 +419,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
             ))}
           </SortableContext>
           <div className="w-72 shrink-0">
-            <Button type="button" variant="outline" className="w-full" onClick={() => setAddColumnOpen(true)}>
-              + Add column
+            <Button type="button" variant="ghost" className="w-full" onClick={() => setAddColumnOpen(true)}>
+              + Agregar columna
             </Button>
           </div>
         </div>
@@ -373,8 +430,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
             <KanbanCard task={activeTask} otherColumns={[]} onMove={() => {}} onDelete={() => {}} />
           )}
           {activeColumn && (
-            <div className="w-72 rounded-xl border border-border bg-card p-2.5 shadow-lg">
-              <span className="text-sm font-semibold">{activeColumn.name}</span>
+            <div className="w-72 border border-line bg-paper p-3">
+              <span className="font-mono text-label-mono tracking-[0.06em] text-ink uppercase">
+                {activeColumn.name}
+              </span>
             </div>
           )}
         </DragOverlay>
@@ -383,21 +442,21 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       <Dialog open={addColumnOpen} onOpenChange={setAddColumnOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add column</DialogTitle>
+            <DialogTitle>Agregar columna</DialogTitle>
           </DialogHeader>
           <Input
             autoFocus
-            placeholder="Column name"
+            placeholder="Nombre de la columna"
             value={newColumnName}
             onChange={(e) => setNewColumnName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddColumn()}
           />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAddColumnOpen(false)}>
-              Cancel
+            <Button type="button" variant="ghost" onClick={() => setAddColumnOpen(false)}>
+              Cancelar
             </Button>
             <Button type="button" onClick={handleAddColumn} disabled={!newColumnName.trim()}>
-              Add column
+              Agregar columna
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -414,17 +473,17 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete &quot;{deleteColumnTarget?.name}&quot;?</DialogTitle>
+            <DialogTitle>¿Eliminar &quot;{deleteColumnTarget?.name}&quot;?</DialogTitle>
             {deleteColumnTarget && deleteColumnTarget.tasks.length > 0 && (
               <DialogDescription>
-                This column has {deleteColumnTarget.tasks.length} task(s). Choose where to move them first.
+                Esta columna tiene {deleteColumnTarget.tasks.length} tarea(s). Elige primero a dónde moverlas.
               </DialogDescription>
             )}
           </DialogHeader>
           {deleteColumnTarget && deleteColumnTarget.tasks.length > 0 && (
             <Select value={moveTasksTo} onValueChange={setMoveTasksTo}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Move tasks to…" />
+                <SelectValue placeholder="Mover tareas a…" />
               </SelectTrigger>
               <SelectContent>
                 {columns
@@ -438,8 +497,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
             </Select>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteColumnTarget(null)}>
-              Cancel
+            <Button type="button" variant="ghost" onClick={() => setDeleteColumnTarget(null)}>
+              Cancelar
             </Button>
             <Button
               type="button"
@@ -447,7 +506,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
               disabled={!!deleteColumnTarget && deleteColumnTarget.tasks.length > 0 && !moveTasksTo}
               onClick={confirmDeleteColumn}
             >
-              Delete column
+              Eliminar columna
             </Button>
           </DialogFooter>
         </DialogContent>

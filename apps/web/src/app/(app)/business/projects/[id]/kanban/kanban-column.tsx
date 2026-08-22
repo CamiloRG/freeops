@@ -17,6 +17,27 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import type { KanbanColumn as KanbanColumnData } from "./kanban-types";
 
+/**
+ * The 4 seeded default column names are stored in English in the DB
+ * (`projects.ts`'s `createProject`, out of this stage's touch list per
+ * its own instructions — a service-layer/schema-adjacent file, not a
+ * copy-only file). This maps only an EXACT match of one of those 4 stored
+ * strings to its Spanish display label; anything else (a renamed column,
+ * or a custom one the user added) renders as typed, untouched. Translating
+ * the *display* only, not the stored value, per this stage's own
+ * instructions.
+ */
+const DEFAULT_COLUMN_DISPLAY_LABEL: Record<string, string> = {
+  Backlog: "Backlog",
+  "In Progress": "En progreso",
+  Review: "Revisión",
+  Done: "Hecho",
+};
+
+function displayColumnName(name: string) {
+  return DEFAULT_COLUMN_DISPLAY_LABEL[name] ?? name;
+}
+
 export function KanbanColumn({
   column,
   otherColumns,
@@ -71,17 +92,17 @@ export function KanbanColumn({
       data-column-name={column.name}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex w-72 shrink-0 flex-col rounded-xl border border-border bg-muted/40",
+        "flex w-72 shrink-0 flex-col bg-surface-sunken",
         isDragging && "opacity-50"
       )}
     >
-      <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-2">
+      <div className="flex items-center gap-1.5 px-3 py-2.5">
         <button
           type="button"
           {...attributes}
           {...listeners}
-          aria-label={`Drag to reorder column "${column.name}"`}
-          className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          aria-label={`Arrastrar para reordenar la columna "${column.name}"`}
+          className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
         >
           <GripVertical className="size-4" />
         </button>
@@ -101,25 +122,27 @@ export function KanbanColumn({
             className="h-7 flex-1"
           />
         ) : (
-          <span className="flex-1 truncate text-sm font-semibold">{column.name}</span>
+          <span className="flex-1 truncate font-mono text-label-mono tracking-[0.06em] text-ink uppercase">
+            {displayColumnName(column.name)}
+          </span>
         )}
-        <span className="shrink-0 text-xs text-muted-foreground">{column.tasks.length}</span>
+        <span className="shrink-0 font-mono text-[11px] text-ink-muted">{column.tasks.length}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Column actions for "${column.name}"`}
+              aria-label={`Acciones de columna para "${column.name}"`}
               className="shrink-0"
             >
               <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setRenaming(true)}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setRenaming(true)}>Renombrar</DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onSelect={onRequestDelete}>
-              Delete column
+              Eliminar columna
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -127,7 +150,7 @@ export function KanbanColumn({
 
       <div
         ref={setDroppableRef}
-        className={cn("min-h-24 flex-1 space-y-2 p-2", isOver && "bg-primary/5")}
+        className={cn("min-h-24 flex-1 space-y-2 p-2", isOver && "bg-accent-50")}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {column.tasks.map((task) => (
@@ -144,9 +167,9 @@ export function KanbanColumn({
           <button
             type="button"
             onClick={() => setAddingTask(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-4 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            className="flex w-full items-center justify-center gap-1.5 py-4 font-mono text-[11px] text-ink-muted transition-colors duration-fast ease-out hover:text-ink"
           >
-            <Plus className="size-3.5" /> Add a task
+            <Plus className="size-3.5" /> Agregar una tarea
           </button>
         )}
       </div>
@@ -156,7 +179,7 @@ export function KanbanColumn({
           <div className="space-y-1.5">
             <Input
               autoFocus
-              placeholder="Task title"
+              placeholder="Título de la tarea"
               value={taskDraft}
               onChange={(e) => setTaskDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -169,7 +192,7 @@ export function KanbanColumn({
             />
             <div className="flex gap-1.5">
               <Button type="button" size="sm" onClick={submitTask}>
-                Add
+                Agregar
               </Button>
               <Button
                 type="button"
@@ -180,7 +203,7 @@ export function KanbanColumn({
                   setAddingTask(false);
                 }}
               >
-                Cancel
+                Cancelar
               </Button>
             </div>
           </div>
@@ -190,10 +213,10 @@ export function KanbanColumn({
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-muted-foreground"
+              className="w-full justify-start text-ink-soft"
               onClick={() => setAddingTask(true)}
             >
-              <Plus /> Add a task
+              <Plus /> Agregar una tarea
             </Button>
           )
         )}
