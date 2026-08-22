@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,23 +16,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { InlineNotice } from "@/components/ui/inline-notice";
+import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { SummaryField, SummaryGrid } from "@/components/personal/summary-grid";
+import { useSaveStatus } from "@/hooks/use-save-status";
+import { isDirty } from "@/lib/form-dirty";
 import { projectUpdateSchema } from "@/lib/validation/business";
 import type { ProjectListItem } from "../../project-list";
+import { useProjectHeaderStatus } from "../project-header-context";
 
 type ProjectStatus = ProjectListItem["status"];
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
-  active: "Active",
-  completed: "Completed",
-  archived: "Archived",
-  cancelled: "Cancelled",
+  active: "Activo",
+  completed: "Completado",
+  archived: "Archivado",
+  cancelled: "Cancelado",
 };
 
 function formatCurrency(value: number | null, currency: string) {
-  if (value == null) return "—";
+  if (value == null) return null;
   try {
     return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
   } catch {
@@ -42,10 +46,10 @@ function formatCurrency(value: number | null, currency: string) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
+  if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("es-CO", { month: "short", day: "numeric", year: "numeric" });
 }
 
 interface ProjectOverview {
@@ -64,25 +68,41 @@ interface ProjectOverview {
   source: "manual" | "crm_auto";
 }
 
+/**
+ * Business / Resumen — NOT pixel-mocked in the design handoff (only
+ * Personal's Profile/Banking are). Wired onto the exact Stage 2 pattern
+ * (`SummaryEditCard` + `useSaveStatus`/`SaveStatusLine` bridged through
+ * `useProjectHeaderStatus` + `InlineNotice` for errors, `isDirty` gating
+ * the Save button) — field labels below map onto the schema per the
+ * ADR's Phase 5 "Field-name mapping" note (API `name`↔`title`,
+ * `value`↔`deal_value`, `startDate`↔`start_date`,
+ * `expectedEndDate`↔`end_date`); layout/copy choices are this stage's own
+ * judgment call, not an invented visual pattern.
+ */
 export function OverviewForm({ projectId, initial }: { projectId: string; initial: ProjectOverview }) {
   const router = useRouter();
   const { editing, setEditing, toggle } = useEditToggle(false);
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(initial);
-  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
-  const [error, setError] = useState<string | null>(null);
+  const saveStatus = useSaveStatus();
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<"idle" | "deleting" | "error">("idle");
 
+  useProjectHeaderStatus(<SaveStatusLine status={saveStatus} />);
+
+  const dirty = isDirty(draft, saved);
+
   function handleToggle() {
-    if (editing) setDraft(saved); // restore on cancel
+    if (editing) {
+      setDraft(saved); // restore on cancel
+      saveStatus.reset();
+    }
     toggle();
   }
 
   async function handleSave() {
-    setError(null);
     const payload = {
       name: draft.name,
       clientName: draft.clientName,
@@ -97,11 +117,10 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
     };
     const parsed = projectUpdateSchema.safeParse(payload);
     if (!parsed.success) {
-      setStatus("error");
-      setError(parsed.error.issues[0]?.message ?? "Check the form and try again.");
+      saveStatus.markError(parsed.error.issues[0]?.message ?? "Revisa el formulario e intenta de nuevo.");
       return;
     }
-    setStatus("saving");
+    saveStatus.markSaving();
     const res = await fetch(`/api/v1/projects/${projectId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -109,11 +128,10 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
     });
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) {
-      setStatus("error");
-      setError(body?.error?.message ?? "Couldn't save — try again.");
+      saveStatus.markError(body?.error?.message ?? "No se pudo guardar — intenta de nuevo.");
       return;
     }
-    setStatus("idle");
+    saveStatus.markSaved();
     setSaved(draft);
     setEditing(false);
   }
@@ -137,66 +155,74 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-9">
       <SummaryEditCard
-        title="Overview"
-        description="Client info, scope, value, and dates."
+        title={<span className="text-h2 font-medium text-ink">Resumen</span>}
+        description={
+          <span className="text-caption text-ink-muted">
+            Datos del cliente, alcance, valor y fechas del proyecto.
+          </span>
+        }
         editing={editing}
         onToggleEdit={handleToggle}
+        cancelLabel={null}
+        contentClassName="pt-[28px]"
         summary={
-          <div className="space-y-4">
+          <div className="space-y-6">
             <SummaryGrid>
-              <SummaryField label="Project name" value={saved.name} />
-              <SummaryField label="Status" value={<Badge>{STATUS_LABEL[saved.status]}</Badge>} />
-              <SummaryField label="Client" value={saved.clientName} />
-              <SummaryField label="Client email" value={saved.clientEmail || "—"} />
-              <SummaryField label="Client tax ID" value={saved.clientTaxId || "—"} />
-              <SummaryField label="Deal value" value={formatCurrency(saved.value, saved.currency)} />
-              <SummaryField label="Start date" value={formatDate(saved.startDate)} />
-              <SummaryField label="Expected end date" value={formatDate(saved.expectedEndDate)} />
+              <SummaryField label="Nombre del proyecto" value={saved.name} />
+              <SummaryField label="Estado" value={STATUS_LABEL[saved.status]} />
+              <SummaryField label="Cliente" value={saved.clientName} />
+              <SummaryField label="Correo del cliente" value={saved.clientEmail} />
+              <SummaryField label="NIT/Cédula del cliente" value={saved.clientTaxId} />
+              <SummaryField label="Valor del contrato" value={formatCurrency(saved.value, saved.currency)} mono />
+              <SummaryField label="Fecha de inicio" value={formatDate(saved.startDate)} mono />
+              <SummaryField label="Fecha de finalización esperada" value={formatDate(saved.expectedEndDate)} mono />
               {saved.source === "crm_auto" && (
-                <SummaryField label="Source" value={<Badge variant="secondary">Auto-created from CRM</Badge>} />
+                <SummaryField label="Origen" value={<span className="text-accent">auto · desde CRM</span>} />
               )}
             </SummaryGrid>
             {saved.description && (
               <div>
-                <div className="text-xs text-muted-foreground">Description</div>
-                <p className="mt-0.5 text-sm leading-relaxed">{saved.description}</p>
+                <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+                  Descripción
+                </div>
+                <p className="mt-[6px] max-w-measure text-body text-ink">{saved.description}</p>
               </div>
             )}
             {saved.scopeNotes && (
               <div>
-                <div className="text-xs text-muted-foreground">Scope notes</div>
-                <p className="mt-0.5 text-sm leading-relaxed">{saved.scopeNotes}</p>
+                <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+                  Notas de alcance
+                </div>
+                <p className="mt-[6px] max-w-measure text-body text-ink">{saved.scopeNotes}</p>
               </div>
             )}
           </div>
         }
       >
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-6">
+          <SummaryGrid>
             <div className="space-y-1.5">
-              <Label htmlFor="ov-name">Project name</Label>
+              <Label htmlFor="ov-name">Nombre del proyecto</Label>
               <Input id="ov-name" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ov-status">Status</Label>
+              <Label htmlFor="ov-status">Estado</Label>
               <Select value={draft.status} onValueChange={(v) => setDraft((d) => ({ ...d, status: v as ProjectStatus }))}>
                 <SelectTrigger id="ov-status" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="active">Activo</SelectItem>
+                  <SelectItem value="completed">Completado</SelectItem>
+                  <SelectItem value="archived">Archivado</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="ov-client">Client name</Label>
+              <Label htmlFor="ov-client">Cliente</Label>
               <Input
                 id="ov-client"
                 value={draft.clientName}
@@ -204,7 +230,7 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ov-client-email">Client email</Label>
+              <Label htmlFor="ov-client-email">Correo del cliente</Label>
               <Input
                 id="ov-client-email"
                 type="email"
@@ -212,30 +238,28 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
                 onChange={(e) => setDraft((d) => ({ ...d, clientEmail: e.target.value }))}
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="ov-client-tax">Client tax ID</Label>
+              <Label htmlFor="ov-client-tax">NIT/Cédula del cliente</Label>
               <Input
                 id="ov-client-tax"
+                className="font-mono text-data-mono"
                 value={draft.clientTaxId ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, clientTaxId: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ov-value">Deal value (COP)</Label>
+              <Label htmlFor="ov-value">Valor del contrato (COP)</Label>
               <Input
                 id="ov-value"
                 type="number"
                 min={0}
+                className="font-mono text-data-mono"
                 value={draft.value ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, value: e.target.value ? Number(e.target.value) : null }))}
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="ov-start">Start date</Label>
+              <Label htmlFor="ov-start">Fecha de inicio</Label>
               <Input
                 id="ov-start"
                 type="date"
@@ -244,7 +268,7 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ov-end">Expected end date</Label>
+              <Label htmlFor="ov-end">Fecha de finalización esperada</Label>
               <Input
                 id="ov-end"
                 type="date"
@@ -252,9 +276,9 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
                 onChange={(e) => setDraft((d) => ({ ...d, expectedEndDate: e.target.value }))}
               />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ov-description">Description</Label>
+          </SummaryGrid>
+          <div className="max-w-measure space-y-1.5">
+            <Label htmlFor="ov-description">Descripción</Label>
             <Textarea
               id="ov-description"
               rows={3}
@@ -262,8 +286,8 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
               onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ov-scope">Scope notes</Label>
+          <div className="max-w-measure space-y-1.5">
+            <Label htmlFor="ov-scope">Notas de alcance</Label>
             <Textarea
               id="ov-scope"
               rows={3}
@@ -271,24 +295,37 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
               onChange={(e) => setDraft((d) => ({ ...d, scopeNotes: e.target.value }))}
             />
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          <Button type="button" onClick={handleSave} disabled={status === "saving"}>
-            {status === "saving" ? "Saving…" : "Save changes"}
-          </Button>
+
+          {saveStatus.status === "error" && (
+            <InlineNotice
+              variant="danger"
+              title="ERROR"
+              description={saveStatus.errorMessage ?? "Revisa los campos marcados."}
+            />
+          )}
+
+          <div className="flex items-center gap-4">
+            <Button type="button" onClick={handleSave} disabled={!dirty || saveStatus.status === "saving"}>
+              {saveStatus.status === "saving" ? "Guardando…" : "Guardar"}
+            </Button>
+            <Button type="button" variant="ghost" onClick={handleToggle}>
+              Descartar
+            </Button>
+          </div>
         </div>
       </SummaryEditCard>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base text-destructive">Danger zone</CardTitle>
+          <CardTitle className="text-h3 text-danger">Zona de peligro</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Deleting a project soft-deletes it — it stops appearing in your project list, but is not
-            permanently destroyed.
+          <p className="mb-4 max-w-measure text-caption text-ink-muted">
+            Eliminar un proyecto lo da de baja — deja de aparecer en tu lista de proyectos activos, pero no se
+            destruye de forma permanente.
           </p>
           <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
-            Delete project
+            Eliminar proyecto
           </Button>
         </CardContent>
       </Card>
@@ -305,15 +342,31 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this project?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar este proyecto?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteWarning ?? "This will remove the project from your active list."}
+              {deleteWarning ?? "Esto quitará el proyecto de tu lista activa."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {deleteStatus === "error" && <p className="text-xs text-destructive">Couldn&apos;t delete — try again.</p>}
+          {deleteStatus === "error" && (
+            <p className="font-mono text-[11px] text-danger">No se pudo eliminar — intenta de nuevo.</p>
+          )}
+          {/* Plain `Button`s, NOT `AlertDialogAction`/`AlertDialogCancel` —
+              this is a two-step confirm on the SAME button (first click
+              fetches the DIAN warning and relabels the button to "Eliminar
+              de todos modos", second click actually confirms), which needs
+              to keep the dialog open across that first click. Radix's
+              `AlertDialogAction` always requests dismissal on click, which
+              would silently close the dialog before the second click could
+              ever happen — matching the pre-restyle code's own deliberate
+              choice here, same reasoning as the AI-import BYOK dialog's
+              own plain-`Button` footer (see the ADR). The one-shot DIAN
+              deletes elsewhere (contract documents, tax documents) already
+              have the warning BEFORE the dialog opens, so those correctly
+              use `AlertDialogAction`/`AlertDialogCancel` — this is the one
+              exception, not a reversion of that convention. */}
           <AlertDialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
+            <Button type="button" variant="ghost" onClick={() => setDeleteOpen(false)}>
+              Cancelar
             </Button>
             <Button
               type="button"
@@ -321,7 +374,7 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
               disabled={deleteStatus === "deleting"}
               onClick={() => handleDelete(!!deleteWarning)}
             >
-              {deleteStatus === "deleting" ? "Deleting…" : deleteWarning ? "Delete anyway" : "Delete"}
+              {deleteStatus === "deleting" ? "Eliminando…" : deleteWarning ? "Eliminar de todos modos" : "Eliminar"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

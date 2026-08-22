@@ -31,10 +31,10 @@ interface ContractDocument {
 }
 
 const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
-  executed_contract: "Executed contract",
-  amendment: "Amendment",
-  appendix: "Appendix",
-  change_order: "Change order",
+  executed_contract: "Contrato firmado",
+  amendment: "Otrosí",
+  appendix: "Anexo",
+  change_order: "Orden de cambio",
 };
 
 function formatSize(bytes: number | null) {
@@ -43,6 +43,16 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Business / Documentos — NOT pixel-mocked (only Personal's Profile/
+ * Banking are). Restyled onto the exact same DIAN two-step delete
+ * convention Stage 2's `tax-info-form.tsx` established for its own
+ * document list (same Spanish copy: "¿Eliminar este documento?" title,
+ * "Cancelar"/"Eliminar de todos modos" buttons, plain `AlertDialogAction`
+ * with no destructive-red override) and the same "Tables / record lists"
+ * whitespace-separated row convention (no `rounded-lg border` box, no
+ * file-input pill — `hover:bg-surface-sunken` per row instead).
+ */
 export function DocumentsPanel({
   projectId,
   initialDocuments,
@@ -63,11 +73,11 @@ export function DocumentsPanel({
   async function handleUpload() {
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      setUploadError("Choose a file first.");
+      setUploadError("Elige un archivo primero.");
       return;
     }
     if (!label.trim()) {
-      setUploadError("Enter a label for this document.");
+      setUploadError("Ingresa una etiqueta para este documento.");
       return;
     }
     setUploading(true);
@@ -80,7 +90,7 @@ export function DocumentsPanel({
     const body = await res.json().catch(() => null);
     setUploading(false);
     if (!res.ok) {
-      setUploadError(body?.error?.message ?? "Upload failed.");
+      setUploadError(body?.error?.message ?? "No se pudo subir el archivo.");
       return;
     }
     setDocs((d) => [
@@ -124,72 +134,77 @@ export function DocumentsPanel({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Contract & amendment documents</CardTitle>
+          <CardTitle className="text-h3 text-ink">Contratos y otrosíes</CardTitle>
           <CardDescription>
-            Executed contracts, amendments, appendices, and change orders (PDF/DOCX, ≤25MB). Viewing only —
-            not e-signature.
+            Contratos firmados, otrosíes, anexos y órdenes de cambio (PDF/DOCX, máx. 25MB). Solo consulta — no
+            es firma electrónica.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
             <Select value={uploadType} onValueChange={(v) => setUploadType(v as DocumentType)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="executed_contract">Executed contract</SelectItem>
-                <SelectItem value="amendment">Amendment</SelectItem>
-                <SelectItem value="appendix">Appendix</SelectItem>
-                <SelectItem value="change_order">Change order</SelectItem>
+                <SelectItem value="executed_contract">Contrato firmado</SelectItem>
+                <SelectItem value="amendment">Otrosí</SelectItem>
+                <SelectItem value="appendix">Anexo</SelectItem>
+                <SelectItem value="change_order">Orden de cambio</SelectItem>
               </SelectContent>
             </Select>
             <div className="space-y-1.5">
               <Label htmlFor="doc-label" className="sr-only">
-                Document label
+                Etiqueta del documento
               </Label>
               <Input
                 id="doc-label"
-                placeholder="Label, e.g. 'Master services agreement'"
+                placeholder="Etiqueta, p. ej. 'Contrato de prestación de servicios'"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
               ref={fileInputRef}
               type="file"
               accept=".pdf,.docx"
-              className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+              className="w-full text-body text-ink-soft file:mr-3 file:border-0 file:bg-transparent file:font-sans file:text-ui file:text-ink"
             />
             <Button type="button" onClick={handleUpload} disabled={uploading}>
-              {uploading ? "Uploading…" : "Upload"}
+              {uploading ? "Subiendo…" : "Subir"}
             </Button>
           </div>
-          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+          {uploadError && <p className="font-mono text-[11px] text-danger">{uploadError}</p>}
 
           {docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+            <p className="text-body text-ink-soft">Todavía no hay documentos subidos.</p>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <ul>
               {docs.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                <li
+                  key={doc.id}
+                  className="flex items-center justify-between gap-3 px-1 py-[14px] text-body-sm transition-colors duration-fast ease-out hover:bg-surface-sunken"
+                >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <Badge variant="secondary">{DOCUMENT_TYPE_LABEL[doc.type]}</Badge>
                     <a
                       href={`/api/v1/projects/${projectId}/documents/${doc.id}/download`}
                       target="_blank"
                       rel="noreferrer"
-                      className="truncate text-primary hover:underline"
+                      className="truncate text-ink underline decoration-line underline-offset-2 hover:text-accent"
                     >
                       {doc.label}
                     </a>
                     {doc.fileSizeBytes != null && (
-                      <span className="shrink-0 text-xs text-muted-foreground">{formatSize(doc.fileSizeBytes)}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-ink-muted">
+                        {formatSize(doc.fileSizeBytes)}
+                      </span>
                     )}
                   </div>
                   <Button type="button" variant="ghost" size="sm" onClick={() => requestDelete(doc.id)}>
-                    Delete
+                    Eliminar
                   </Button>
                 </li>
               ))}
@@ -201,12 +216,12 @@ export function DocumentsPanel({
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar este documento?</AlertDialogTitle>
             <AlertDialogDescription>{pendingDelete?.warning}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete anyway</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Eliminar de todos modos</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

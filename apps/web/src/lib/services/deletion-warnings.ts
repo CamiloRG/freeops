@@ -27,8 +27,13 @@ export function isWithinDianWindow(referenceDate: Date): boolean {
   return referenceDate > cutoff;
 }
 
+// "Ledger Quiet" stage 3: translated to Spanish — pure user-facing copy,
+// not logic (fixes an English string that was appearing inside an
+// otherwise-Spanish delete-confirmation dialog on both the already-merged
+// Personal/Tax screen and this stage's own contract-document/project
+// delete flows). No behavior/shape change.
 export const DIAN_RETENTION_WARNING =
-  "This document is typically retained 5 years for DIAN audit purposes. Delete anyway?";
+  "Este documento normalmente se conserva 5 años para efectos de auditoría de la DIAN. ¿Eliminar de todos modos?";
 
 export async function logDeletionWarning(
   tx: RlsTx,

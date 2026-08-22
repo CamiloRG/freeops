@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BreadcrumbHeader } from "@/components/layout/breadcrumb-header";
+import { cn } from "@/lib/utils";
 import { projectCreateSchema } from "@/lib/validation/business";
 
 export interface ProjectListItem {
@@ -34,17 +35,24 @@ export interface ProjectListItem {
 }
 
 const STATUS_LABEL: Record<ProjectListItem["status"], string> = {
-  active: "Active",
-  completed: "Completed",
-  archived: "Archived",
-  cancelled: "Cancelled",
+  active: "Activo",
+  completed: "Completado",
+  archived: "Archivado",
+  cancelled: "Cancelado",
 };
 
-const STATUS_BADGE_VARIANT: Record<ProjectListItem["status"], "default" | "secondary" | "outline" | "destructive"> = {
-  active: "default",
-  completed: "secondary",
-  archived: "outline",
-  cancelled: "destructive",
+/**
+ * Project status as a plain mono status marker (README "Status markers":
+ * "no pills, no background chips"), not a colored badge/chip — `--accent`
+ * is deliberately NOT used here (reserved for automation/focus/active-nav/
+ * verification per rule 5, not a generic "active" business status). Own
+ * judgment call, no mock covers project-status text this stage.
+ */
+const STATUS_COLOR: Record<ProjectListItem["status"], string> = {
+  active: "text-ink",
+  completed: "text-success",
+  archived: "text-ink-muted",
+  cancelled: "text-danger",
 };
 
 function formatCurrency(value: number | null, currency: string) {
@@ -60,7 +68,7 @@ function formatDate(value: string | null) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("es-CO", { month: "short", day: "numeric", year: "numeric" });
 }
 
 const emptyDraft = {
@@ -73,6 +81,16 @@ const emptyDraft = {
   value: "",
 };
 
+/**
+ * "Ledger Quiet" restyle (stage 3) — NOT pixel-mocked (only Personal's
+ * Profile/Banking screens are). Extrapolated: `BreadcrumbHeader` +
+ * non-centered content padding (same `content-padding` constant Personal
+ * uses), card grid restyled to the flat/no-shadow/no-radius `Card`
+ * primitive with plain mono status markers instead of colored badges,
+ * filters/search restyled onto the bottom-border-only `Select`/`Input`.
+ * Card/table view toggle stays out of scope (spec's own `[ASSUMED
+ * DEFAULT]`, unchanged from Phase 5).
+ */
 export function ProjectList({ initialProjects }: { initialProjects: ProjectListItem[] }) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
@@ -116,7 +134,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
     const parsed = projectCreateSchema.safeParse(payload);
     if (!parsed.success) {
       setCreateStatus("error");
-      setCreateError(parsed.error.issues[0]?.message ?? "Check the form and try again.");
+      setCreateError(parsed.error.issues[0]?.message ?? "Revisa el formulario e intenta de nuevo.");
       return;
     }
     setCreateStatus("saving");
@@ -128,7 +146,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) {
       setCreateStatus("error");
-      setCreateError(body?.error?.message ?? "Couldn't create the project — try again.");
+      setCreateError(body?.error?.message ?? "No se pudo crear el proyecto — intenta de nuevo.");
       return;
     }
     setCreateStatus("idle");
@@ -138,82 +156,89 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div className="px-9 pt-[26px] pb-8">
+      <BreadcrumbHeader breadcrumb="NEGOCIO / PROYECTOS" />
+
+      <div className="mt-5 mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Projects</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Client projects, contracts, and their kanban boards.
+          <h1 className="text-h1 font-medium text-ink">Proyectos</h1>
+          <p className="mt-1 max-w-measure text-caption text-ink-muted">
+            Proyectos de clientes, contratos y sus tableros kanban.
           </p>
         </div>
         <Button type="button" onClick={() => setDialogOpen(true)}>
-          + New Project
+          + Nuevo proyecto
         </Button>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-4">
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-40" aria-label="Filter by status">
+          <SelectTrigger className="w-44" aria-label="Filtrar por estado">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="active">Activo</SelectItem>
+            <SelectItem value="completed">Completado</SelectItem>
+            <SelectItem value="archived">Archivado</SelectItem>
+            <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
         <Input
-          placeholder="Search by name or client…"
+          placeholder="Buscar por nombre o cliente…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="max-w-xs"
         />
-        {loading && <span className="text-xs text-muted-foreground">Loading…</span>}
+        {loading && <span className="font-mono text-[11px] text-ink-muted">cargando…</span>}
       </div>
 
       {projects.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="text-sm font-medium">No projects yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {status !== "all" || query
-                ? "No projects match these filters."
-                : "Create your first project to start tracking contracts and tasks."}
-            </p>
-            {status === "all" && !query && (
-              <Button type="button" className="mt-4" onClick={() => setDialogOpen(true)}>
-                + New Project
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <div className="max-w-measure py-10">
+          <h3 className="text-h3 text-ink">Aún no hay proyectos</h3>
+          <p className="mt-1.5 text-caption text-ink-muted">
+            {status !== "all" || query
+              ? "Ningún proyecto coincide con estos filtros."
+              : "Crea tu primer proyecto para empezar a llevar contratos y tareas."}
+          </p>
+          {status === "all" && !query && (
+            <Button type="button" variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
+              + Nuevo proyecto
+            </Button>
+          )}
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <Link key={project.id} href={`/business/projects/${project.id}/overview`} className="block">
-              <Card className="h-full transition-colors hover:border-primary/40">
-                <CardHeader className="flex-row items-start justify-between space-y-0 gap-2">
+              <Card className="h-full transition-colors duration-fast ease-out hover:bg-surface-sunken">
+                <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
                   <div className="min-w-0">
-                    <CardTitle className="truncate text-base">{project.name}</CardTitle>
+                    <CardTitle className="truncate text-h3 font-medium text-ink">{project.name}</CardTitle>
                     <CardDescription className="truncate">{project.clientName}</CardDescription>
                   </div>
-                  <Badge variant={STATUS_BADGE_VARIANT[project.status]} className="shrink-0">
+                  <span
+                    className={cn(
+                      "shrink-0 font-mono text-[11px] uppercase",
+                      STATUS_COLOR[project.status]
+                    )}
+                  >
                     {STATUS_LABEL[project.status]}
-                  </Badge>
+                  </span>
                 </CardHeader>
-                <CardContent className="space-y-1.5 text-sm text-muted-foreground">
+                <CardContent className="space-y-1.5 text-body-sm text-ink-soft">
                   {project.value != null && (
-                    <div className="font-medium text-foreground">
+                    <div className="font-mono text-data-mono text-ink">
                       {formatCurrency(project.value, project.currency)}
                     </div>
                   )}
                   <div>
-                    {formatDate(project.startDate) ?? "No start date"}
+                    {formatDate(project.startDate) ?? "Sin fecha de inicio"}
                     {project.expectedEndDate && ` — ${formatDate(project.expectedEndDate)}`}
                   </div>
-                  {project.source === "crm_auto" && <Badge variant="secondary">From CRM</Badge>}
+                  {project.source === "crm_auto" && (
+                    <div className="font-mono text-[11px] text-accent">auto · desde CRM</div>
+                  )}
                 </CardContent>
               </Card>
             </Link>
@@ -233,12 +258,12 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Project</DialogTitle>
+            <DialogTitle>Nuevo proyecto</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="proj-name">Project name</Label>
+                <Label htmlFor="proj-name">Nombre del proyecto</Label>
                 <Input
                   id="proj-name"
                   value={draft.name}
@@ -246,7 +271,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="proj-client">Client name</Label>
+                <Label htmlFor="proj-client">Nombre del cliente</Label>
                 <Input
                   id="proj-client"
                   value={draft.clientName}
@@ -256,7 +281,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="proj-email">Client email</Label>
+                <Label htmlFor="proj-email">Correo del cliente</Label>
                 <Input
                   id="proj-email"
                   type="email"
@@ -265,11 +290,12 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="proj-value">Deal value (COP)</Label>
+                <Label htmlFor="proj-value">Valor del contrato (COP)</Label>
                 <Input
                   id="proj-value"
                   type="number"
                   min={0}
+                  className="font-mono text-data-mono"
                   value={draft.value}
                   onChange={(e) => setDraft((d) => ({ ...d, value: e.target.value }))}
                 />
@@ -277,7 +303,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="proj-start">Start date</Label>
+                <Label htmlFor="proj-start">Fecha de inicio</Label>
                 <Input
                   id="proj-start"
                   type="date"
@@ -286,7 +312,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="proj-end">Expected end date</Label>
+                <Label htmlFor="proj-end">Fecha de finalización esperada</Label>
                 <Input
                   id="proj-end"
                   type="date"
@@ -296,7 +322,7 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="proj-description">Description</Label>
+              <Label htmlFor="proj-description">Descripción</Label>
               <Textarea
                 id="proj-description"
                 rows={3}
@@ -304,18 +330,18 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
                 onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
               />
             </div>
-            {createError && <p className="text-xs text-destructive">{createError}</p>}
+            {createError && <p className="font-mono text-[11px] text-danger">{createError}</p>}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+            <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
+              Cancelar
             </Button>
             <Button
               type="button"
               onClick={handleCreate}
               disabled={createStatus === "saving" || !draft.name || !draft.clientName || !draft.startDate}
             >
-              {createStatus === "saving" ? "Creating…" : "Create project"}
+              {createStatus === "saving" ? "Creando…" : "Crear proyecto"}
             </Button>
           </DialogFooter>
         </DialogContent>

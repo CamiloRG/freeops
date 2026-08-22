@@ -14,13 +14,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { KanbanColumn, KanbanTask } from "./kanban-types";
+import { displayColumnName, type KanbanColumn, type KanbanTask } from "./kanban-types";
 
 function formatDueDate(value: string | null) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return date.toLocaleDateString("es-CO", { month: "short", day: "numeric" });
 }
 
 /**
@@ -32,6 +32,21 @@ function formatDueDate(value: string | null) {
  * call the exact same `onMove` handler, which fires the identical
  * `PATCH .../board/tasks/:taskId` mutation either way — never a second,
  * out-of-sync implementation.
+ *
+ * "Ledger Quiet" visual-boundary judgment call (stage 3, no mock covers a
+ * kanban board): `Card` itself renders no box at all any more (stage 1's
+ * restyle — pure structural wrapper). A dense, draggable multi-column
+ * board reads poorly with whitespace-only separation between cards sitting
+ * on the column's own `--surface-sunken` tone — there'd be nothing to
+ * visually pick up/drop. Chosen option (a) from the two the stage
+ * instructions offered: the same `1px --line` hairline-border exception
+ * stage 1 already granted `Dialog`/`AlertDialog` ("functionally distinct
+ * draggable/floating objects, not plain content sections") — applied here
+ * to `bg-paper` (so a card visibly lifts off the column's sunken
+ * background) with no radius/shadow, consistent with the rest of the
+ * system. `KanbanColumn` gets the matching half of this: background-tone
+ * separation only (`--surface-sunken`, no border), per rule 2's own
+ * "depth comes only from background tone" language.
  */
 export function KanbanCard({
   task,
@@ -56,7 +71,7 @@ export function KanbanCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "gap-0 border-border p-2.5 shadow-none",
+        "gap-0 border border-line bg-paper p-2.5",
         isDragging && "opacity-40"
       )}
     >
@@ -65,17 +80,17 @@ export function KanbanCard({
           type="button"
           {...attributes}
           {...listeners}
-          aria-label={`Drag to reorder "${task.title}"`}
-          className="mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          aria-label={`Arrastrar para reordenar "${task.title}"`}
+          className="mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
         >
           <GripVertical className="size-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium break-words">{task.title}</div>
+          <div className="text-body-sm font-medium break-words text-ink">{task.title}</div>
           {task.description && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
+            <p className="mt-0.5 line-clamp-2 text-caption text-ink-muted">{task.description}</p>
           )}
-          {dueDate && <div className="mt-1.5 text-xs text-muted-foreground">Due {dueDate}</div>}
+          {dueDate && <div className="mt-1.5 font-mono text-[11px] text-ink-muted">Vence {dueDate}</div>}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -83,25 +98,25 @@ export function KanbanCard({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Move or delete "${task.title}"`}
+              aria-label={`Mover o eliminar "${task.title}"`}
               className="shrink-0"
             >
               <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Move to</DropdownMenuLabel>
+            <DropdownMenuLabel>Mover a</DropdownMenuLabel>
             {otherColumns.length === 0 && (
-              <DropdownMenuItem disabled>No other columns</DropdownMenuItem>
+              <DropdownMenuItem disabled>No hay otras columnas</DropdownMenuItem>
             )}
             {otherColumns.map((column) => (
               <DropdownMenuItem key={column.id} onSelect={() => onMove(column.id)}>
-                {column.name}
+                {displayColumnName(column.name)}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-              Delete task
+              Eliminar tarea
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
