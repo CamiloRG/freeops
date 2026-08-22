@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
-import type { KanbanColumn as KanbanColumnData, KanbanTask } from "./kanban-types";
+import { displayColumnName, type KanbanColumn as KanbanColumnData, type KanbanTask } from "./kanban-types";
 
 const MOVE_ERROR = "No se pudo mover la tarea — revisa tu conexión e intenta de nuevo.";
 
@@ -432,7 +432,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
           {activeColumn && (
             <div className="w-72 border border-line bg-paper p-3">
               <span className="font-mono text-label-mono tracking-[0.06em] text-ink uppercase">
-                {activeColumn.name}
+                {displayColumnName(activeColumn.name)}
               </span>
             </div>
           )}
@@ -473,7 +473,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>¿Eliminar &quot;{deleteColumnTarget?.name}&quot;?</DialogTitle>
+            <DialogTitle>
+              ¿Eliminar &quot;{deleteColumnTarget && displayColumnName(deleteColumnTarget.name)}&quot;?
+            </DialogTitle>
             {deleteColumnTarget && deleteColumnTarget.tasks.length > 0 && (
               <DialogDescription>
                 Esta columna tiene {deleteColumnTarget.tasks.length} tarea(s). Elige primero a dónde moverlas.
@@ -490,7 +492,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   .filter((c) => c.id !== deleteColumnTarget.id)
                   .map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}
+                      {displayColumnName(c.name)}
                     </SelectItem>
                   ))}
               </SelectContent>

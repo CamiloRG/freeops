@@ -15,28 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
-import type { KanbanColumn as KanbanColumnData } from "./kanban-types";
-
-/**
- * The 4 seeded default column names are stored in English in the DB
- * (`projects.ts`'s `createProject`, out of this stage's touch list per
- * its own instructions — a service-layer/schema-adjacent file, not a
- * copy-only file). This maps only an EXACT match of one of those 4 stored
- * strings to its Spanish display label; anything else (a renamed column,
- * or a custom one the user added) renders as typed, untouched. Translating
- * the *display* only, not the stored value, per this stage's own
- * instructions.
- */
-const DEFAULT_COLUMN_DISPLAY_LABEL: Record<string, string> = {
-  Backlog: "Backlog",
-  "In Progress": "En progreso",
-  Review: "Revisión",
-  Done: "Hecho",
-};
-
-function displayColumnName(name: string) {
-  return DEFAULT_COLUMN_DISPLAY_LABEL[name] ?? name;
-}
+import { displayColumnName, type KanbanColumn as KanbanColumnData } from "./kanban-types";
 
 export function KanbanColumn({
   column,

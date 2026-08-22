@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { KanbanColumn, KanbanTask } from "./kanban-types";
+import { displayColumnName, type KanbanColumn, type KanbanTask } from "./kanban-types";
 
 function formatDueDate(value: string | null) {
   if (!value) return null;
@@ -111,7 +111,7 @@ export function KanbanCard({
             )}
             {otherColumns.map((column) => (
               <DropdownMenuItem key={column.id} onSelect={() => onMove(column.id)}>
-                {column.name}
+                {displayColumnName(column.name)}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
