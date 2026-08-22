@@ -18,6 +18,14 @@ export interface CollapsibleEntryRowProps {
  * A single collapsed-summary row that expands in place to its full edit
  * form — Resume's Experience-entry pattern. Pair with `useSingleOpen` in
  * the parent list for accordion (one-open-at-a-time) behavior.
+ *
+ * "Ledger Quiet" restyle: no radius, no box — row separation is pure
+ * whitespace/padding, hover tints to `--surface-sunken` (the handoff's
+ * "Tables / record lists" row-hover convention, reused here since this is
+ * effectively a one-row-per-entry list). The chevron is the one functional,
+ * non-decorative glyph this system permits (README "Assets": "a 1.5px-
+ * stroke line set at 16px in `--ink-soft`, never filled or colored") — kept
+ * plain and thin, not filled/colored.
  */
 export function CollapsibleEntryRow({ expanded, onToggle, summary, children, className }: CollapsibleEntryRowProps) {
   return (
@@ -26,16 +34,17 @@ export function CollapsibleEntryRow({ expanded, onToggle, summary, children, cla
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted"
+        className="flex w-full items-center gap-3 px-1 py-[14px] text-left transition-colors duration-fast ease-out hover:bg-surface-sunken"
       >
         <ChevronRight
           aria-hidden
-          className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", expanded && "rotate-90")}
+          strokeWidth={1.5}
+          className={cn("size-4 shrink-0 text-ink-soft transition-transform duration-fast ease-out", expanded && "rotate-90")}
         />
         <div className="min-w-0 flex-1">{summary}</div>
       </button>
       {expanded && (
-        <div className="animate-in fade-in slide-in-from-top-1 space-y-3 py-1 pr-3 pb-5 pl-10 duration-200">
+        <div className="animate-in fade-in slide-in-from-top-1 space-y-4 px-1 pt-1 pb-6 pl-8 duration-200">
           {children}
         </div>
       )}

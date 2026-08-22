@@ -5,9 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { InlineNotice } from "@/components/ui/inline-notice";
+import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
+import { useSaveStatus } from "@/hooks/use-save-status";
+import { isDirty } from "@/lib/form-dirty";
 import { brandingUpdateSchema } from "@/lib/validation/personal";
+import { usePersonalHeaderStatus } from "../personal-header-context";
 
 interface BrandingValues {
   logoUrl: string | null;
@@ -15,6 +20,18 @@ interface BrandingValues {
   secondaryColor: string;
 }
 
+/**
+ * Personal / Marca — NOT pixel-mocked in the design handoff. Extrapolated
+ * onto the same tokens/patterns as Profile/Banking. The logo/swatch
+ * summary is a bespoke layout (per the ADR's own note that Branding's
+ * summary doesn't use `SummaryGrid`) rather than a label/value grid, since
+ * a color swatch + logo thumbnail don't fit that shape. The logo preview
+ * box and the cuenta-de-cobro mock-document preview each keep a single
+ * `1px --line` hairline as a functional boundary (an image/document
+ * preview needs some visible edge to read as a bounded object) — the same
+ * narrow exception Stage 1 already made for Dialog/AlertDialog surfaces,
+ * not a new deviation.
+ */
 export function BrandingForm({ initial, fullName }: { initial: BrandingValues; fullName: string }) {
   const [values, setValues] = useState(initial);
   const [savedColors, setSavedColors] = useState({
@@ -22,16 +39,23 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
     secondaryColor: initial.secondaryColor,
   });
   const { editing, setEditing, toggle } = useEditToggle(false);
-  const [colorStatus, setColorStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveStatus = useSaveStatus();
   const [logoStatus, setLogoStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [logoError, setLogoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
+
+  const dirty = isDirty(
+    { primaryColor: values.primaryColor, secondaryColor: values.secondaryColor },
+    savedColors
+  );
 
   function handleToggle() {
     if (editing) {
       // Cancel — discard unsaved color edits (logo changes already saved on upload).
       setValues((v) => ({ ...v, ...savedColors }));
-      setColorStatus("idle");
+      saveStatus.reset();
     }
     toggle();
   }
@@ -43,20 +67,20 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
       secondaryColor: values.secondaryColor,
     });
     if (!parsed.success) {
-      setColorStatus("error");
+      saveStatus.markError("Usa un color hexadecimal de 6 dígitos.");
       return;
     }
-    setColorStatus("saving");
+    saveStatus.markSaving();
     const res = await fetch("/api/v1/me/branding", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      setColorStatus("error");
+      saveStatus.markError("No se pudo guardar. Intenta de nuevo.");
       return;
     }
-    setColorStatus("saved");
+    saveStatus.markSaved();
     setSavedColors({ primaryColor: values.primaryColor, secondaryColor: values.secondaryColor });
     setEditing(false);
   }
@@ -72,7 +96,7 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
     const body = await res.json().catch(() => null);
     if (!res.ok) {
       setLogoStatus("error");
-      setLogoError(body?.error?.message ?? "Upload failed.");
+      setLogoError(body?.error?.message ?? "No se pudo subir el archivo.");
       return;
     }
     setValues((v) => ({ ...v, logoUrl: body.logoUrl }));
@@ -86,57 +110,55 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-9">
       <SummaryEditCard
-        title="Logo & brand colors"
-        description="Applied to generated cuentas de cobro and invoices."
+        title={<span className="text-h2 font-medium text-ink">Logo y colores de marca</span>}
+        description={
+          <span className="text-caption text-ink-muted">Se aplican a las cuentas de cobro y facturas que generas.</span>
+        }
         editing={editing}
         onToggleEdit={handleToggle}
+        cancelLabel={null}
+        contentClassName="pt-[28px]"
         summary={
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+          <div className="flex flex-wrap items-center gap-8">
+            <div className="flex size-14 shrink-0 items-center justify-center border border-line bg-surface-sunken">
               {values.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={values.logoUrl} alt="Logo" className="size-full object-contain" />
               ) : (
-                <span className="text-[10px] text-muted-foreground">No logo</span>
+                <span className="font-mono text-[10px] text-ink-faint">Sin logo</span>
               )}
             </div>
-            <div className="flex gap-6">
+            <div className="flex gap-8">
               <div>
-                <div className="text-xs text-muted-foreground">Primary</div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className="size-3.5 shrink-0 rounded border border-border"
-                    style={{ backgroundColor: values.primaryColor }}
-                  />
-                  <span className="text-sm font-medium">{values.primaryColor}</span>
+                <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">Primario</div>
+                <div className="mt-[6px] flex items-center gap-2">
+                  <span className="size-3.5 shrink-0 border border-line" style={{ backgroundColor: values.primaryColor }} />
+                  <span className="font-mono text-data-mono text-ink">{values.primaryColor}</span>
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Secondary</div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className="size-3.5 shrink-0 rounded border border-border"
-                    style={{ backgroundColor: values.secondaryColor }}
-                  />
-                  <span className="text-sm font-medium">{values.secondaryColor}</span>
+                <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">Secundario</div>
+                <div className="mt-[6px] flex items-center gap-2">
+                  <span className="size-3.5 shrink-0 border border-line" style={{ backgroundColor: values.secondaryColor }} />
+                  <span className="font-mono text-data-mono text-ink">{values.secondaryColor}</span>
                 </div>
               </div>
             </div>
           </div>
         }
       >
-        <div className="space-y-5">
+        <div className="flex flex-col gap-7">
           <div>
-            <Label className="mb-1.5">Logo</Label>
+            <Label className="mb-2">Logo</Label>
             <div className="flex items-center gap-4">
-              <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+              <div className="flex size-16 shrink-0 items-center justify-center border border-line bg-surface-sunken">
                 {values.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={values.logoUrl} alt="Logo" className="size-full object-contain" />
                 ) : (
-                  <span className="text-xs text-muted-foreground">No logo</span>
+                  <span className="font-mono text-[10px] text-ink-faint">Sin logo</span>
                 )}
               </div>
               <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
@@ -144,69 +166,75 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
                   ref={fileInputRef}
                   type="file"
                   accept=".png,.jpg,.jpeg,.svg"
-                  className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                  className="w-full text-body text-ink-soft file:mr-3 file:border-0 file:bg-transparent file:font-sans file:text-ui file:text-ink"
                 />
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button type="button" size="sm" onClick={handleLogoUpload} disabled={logoStatus === "uploading"}>
-                    {logoStatus === "uploading" ? "Uploading…" : "Upload"}
+                    {logoStatus === "uploading" ? "Subiendo…" : "Subir"}
                   </Button>
                   {values.logoUrl && (
                     <Button type="button" variant="outline" size="sm" onClick={handleLogoDelete}>
-                      Remove
+                      Quitar
                     </Button>
                   )}
                 </div>
               </div>
             </div>
-            {logoError && <p className="mt-2 text-sm text-destructive">{logoError}</p>}
-            <p className="mt-2 text-xs text-muted-foreground">PNG, JPG, or SVG, up to 5MB.</p>
+            {logoError && <p className="mt-2 font-mono text-[11px] text-danger">{logoError}</p>}
+            <p className="mt-2 text-caption text-ink-muted">PNG, JPG o SVG, hasta 5MB.</p>
           </div>
 
-          <form onSubmit={saveColors} className="space-y-4">
-            <div className="grid max-w-md gap-4 sm:grid-cols-2">
+          <form onSubmit={saveColors} className="flex flex-col gap-6">
+            <div className="grid max-w-[440px] grid-cols-1 gap-x-11 gap-y-[26px] sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="primaryColor">Primary color</Label>
-                <div className="flex items-center gap-2">
+                <Label htmlFor="primaryColor">Color primario</Label>
+                <div className="flex items-center gap-2.5">
                   <input
                     type="color"
-                    aria-label="Primary color picker"
+                    aria-label="Selector de color primario"
                     value={values.primaryColor}
                     onChange={(e) => setValues((v) => ({ ...v, primaryColor: e.target.value }))}
-                    className="size-8 shrink-0 cursor-pointer rounded border border-border"
+                    className="size-8 shrink-0 cursor-pointer border border-line"
                   />
                   <Input
                     id="primaryColor"
                     value={values.primaryColor}
                     onChange={(e) => setValues((v) => ({ ...v, primaryColor: e.target.value }))}
+                    className="font-mono text-data-mono"
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="secondaryColor">Secondary color</Label>
-                <div className="flex items-center gap-2">
+                <Label htmlFor="secondaryColor">Color secundario</Label>
+                <div className="flex items-center gap-2.5">
                   <input
                     type="color"
-                    aria-label="Secondary color picker"
+                    aria-label="Selector de color secundario"
                     value={values.secondaryColor}
                     onChange={(e) => setValues((v) => ({ ...v, secondaryColor: e.target.value }))}
-                    className="size-8 shrink-0 cursor-pointer rounded border border-border"
+                    className="size-8 shrink-0 cursor-pointer border border-line"
                   />
                   <Input
                     id="secondaryColor"
                     value={values.secondaryColor}
                     onChange={(e) => setValues((v) => ({ ...v, secondaryColor: e.target.value }))}
+                    className="font-mono text-data-mono"
                   />
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={colorStatus === "saving"}>
-                {colorStatus === "saving" ? "Saving…" : "Save colors"}
+
+            {saveStatus.status === "error" && (
+              <InlineNotice variant="danger" title="ERROR" description={saveStatus.errorMessage} />
+            )}
+
+            <div className="flex items-center gap-4">
+              <Button type="submit" disabled={!dirty || saveStatus.status === "saving"}>
+                {saveStatus.status === "saving" ? "Guardando…" : "Guardar colores"}
               </Button>
-              {/* No inline "Saved." message — a successful save collapses this
-                  form back to the summary view, and the refreshed summary IS
-                  the confirmation (same convention as Banking). */}
-              {colorStatus === "error" && <span className="text-sm text-destructive">Use a 6-digit hex color.</span>}
+              <Button type="button" variant="ghost" onClick={handleToggle}>
+                Descartar
+              </Button>
             </div>
           </form>
         </div>
@@ -214,41 +242,39 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
 
       <Card>
         <CardHeader>
-          <CardTitle>Preview</CardTitle>
+          <CardTitle className="text-h3 text-ink">Vista previa</CardTitle>
           <CardDescription>
-            A mock cuenta de cobro header showing how your branding will appear — Finance document
-            generation (Phase 7) isn&apos;t built yet, so this is a static preview, not a real document.
+            Un encabezado de cuenta de cobro simulado que muestra cómo se verá tu marca — la generación de
+            documentos de Finanzas todavía no está construida, así que esto es una vista previa estática, no un
+            documento real.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border border-border bg-white text-[#1a1a1a] shadow-sm">
-            <div
-              className="flex items-center justify-between px-6 py-5"
-              style={{ backgroundColor: values.primaryColor }}
-            >
+          <div className="overflow-hidden border border-line bg-white text-[#1a1a1a]">
+            <div className="flex items-center justify-between px-6 py-5" style={{ backgroundColor: values.primaryColor }}>
               <div className="flex items-center gap-3">
                 {values.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={values.logoUrl} alt="Logo" className="h-10 w-auto rounded bg-white/90 p-1" />
+                  <img src={values.logoUrl} alt="Logo" className="h-10 w-auto bg-white/90 p-1" />
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded bg-white/20 text-xs text-white">
+                  <div className="flex h-10 w-10 items-center justify-center bg-white/20 font-mono text-[10px] text-white">
                     Logo
                   </div>
                 )}
                 <span className="text-lg font-semibold text-white">{fullName}</span>
               </div>
-              <span className="text-sm font-medium text-white/90">Cuenta de cobro No. 0001</span>
+              <span className="font-mono text-[11px] text-white/90">Cuenta de cobro No. 0001</span>
             </div>
-            <div className="space-y-3 px-6 py-5 text-sm">
+            <div className="space-y-3 px-6 py-5 text-body-sm">
               <div className="flex justify-between border-b pb-2" style={{ borderColor: values.secondaryColor + "33" }}>
-                <span>Client</span>
+                <span>Cliente</span>
                 <span className="font-medium">Acme Co.</span>
               </div>
               <div className="flex justify-between border-b pb-2" style={{ borderColor: values.secondaryColor + "33" }}>
-                <span>Concept</span>
-                <span className="font-medium">Professional services</span>
+                <span>Concepto</span>
+                <span className="font-medium">Servicios profesionales</span>
               </div>
-              <div className="flex justify-between font-semibold" style={{ color: values.secondaryColor }}>
+              <div className="flex justify-between font-mono font-semibold" style={{ color: values.secondaryColor }}>
                 <span>Total</span>
                 <span>$ 1.500.000 COP</span>
               </div>
