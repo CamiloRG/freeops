@@ -1,165 +1,243 @@
 import Link from "next/link";
-import { Briefcase, CheckCircle2, User, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const SE_ENCARGA_DE = [
+  { label: "Cuentas de cobro", marker: "auto" as const },
+  { label: "Cálculo PILA", marker: "auto" as const },
+  { label: "Recordatorios de mora", marker: "auto" as const },
+  { label: "Pipeline de clientes", marker: "manual" as const },
+];
 
 const PILLARS = [
   {
-    icon: User,
-    title: "Professional presence",
+    n: "01",
+    title: "Presencia profesional",
     description:
-      "A complete profile, branding for your invoices and cuentas de cobro, a resume that pulls straight from your project history, and a booking link prospects can use to grab time on your real calendar.",
+      "Un perfil completo, marca para tus facturas y cuentas de cobro, una hoja de vida que se arma sola desde tu historial de proyectos, y un enlace para agendar que tus prospectos usan directo en tu calendario real.",
     features: [
-      "Profile, banking & tax info in one place",
-      "Logo & branding on every generated document",
-      "Resume/CV that imports completed projects",
-      "Shareable booking link (Gmail or Outlook)",
+      "Perfil, banca y datos tributarios en un solo lugar",
+      "Logo y marca en cada documento generado",
+      "Hoja de vida que importa tus proyectos terminados",
+      "Enlace de agenda compartible (Gmail u Outlook)",
     ],
   },
   {
-    icon: Briefcase,
-    title: "Business tracking",
+    n: "02",
+    title: "Seguimiento del negocio",
     description:
-      "Every contract, amendment and change order stored against the right project, a kanban board to run the work, and a simple CRM pipeline that turns a closed-won deal into a project automatically.",
+      "Cada contrato, otrosí y cambio de alcance guardado contra el proyecto correcto, un kanban por proyecto para llevar el trabajo, y un pipeline de CRM simple que convierte un negocio cerrado en un proyecto automáticamente.",
     features: [
-      "Contracts, amendments & change orders",
-      "Customizable per-project kanban board",
-      "CRM pipeline for sales opportunities",
-      "Closed-won auto-creates the project",
+      "Contratos, otrosíes y cambios de alcance",
+      "Kanban personalizable por proyecto",
+      "Pipeline de CRM para oportunidades",
+      "Cerrado-ganado crea el proyecto automáticamente",
     ],
   },
   {
-    icon: Wallet,
-    title: "Finance & compliance",
+    n: "03",
+    title: "Finanzas y compliance",
     description:
-      "Generate cuentas de cobro and invoices natively, chase overdue payments automatically, calculate what you owe PILA each month, and hand your accountant a package instead of a shoebox.",
+      "Genera cuentas de cobro y facturas de forma nativa, persigue pagos en mora automáticamente, calcula lo que debes de PILA cada mes, y entrégale a tu contador un paquete en vez de una caja de recibos.",
     features: [
-      "Cuentas de cobro & invoicing",
-      "Automated overdue-payment follow-up",
-      "Monthly PILA (IBC) calculation",
-      "Accountant-ready tax-document vault",
+      "Cuentas de cobro y facturación",
+      "Seguimiento automático de pagos en mora",
+      "Cálculo mensual de PILA (IBC)",
+      "Bóveda de documentos tributarios lista para tu contador",
     ],
   },
+];
+
+const QUOTES = [
+  { text: "Dejé de perseguir facturas. Ahora las manda solas.", author: "Ana · diseñadora" },
+  { text: "Mi PILA se calcula sola cada mes.", author: "Julián · desarrollador" },
+  { text: "Todo mi pipeline en un solo lugar.", author: "Marcela · consultora" },
 ];
 
 export default function MarketingHomePage() {
   return (
     <>
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-24 -z-10 flex justify-center blur-3xl"
-        >
-          <div className="h-72 w-[36rem] rounded-full bg-primary/20" />
-        </div>
-        <div className="mx-auto max-w-4xl px-4 py-20 text-center md:px-8 md:py-28">
-          <p className="mb-4 text-sm font-medium tracking-wide text-primary uppercase">
-            For Colombian freelancers
-          </p>
-          <h1 className="text-balance text-4xl font-semibold leading-tight md:text-6xl">
-            The admin backup a traditional employer would give you —
-            minus the employer.
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted-foreground">
-            FreeOps brings your professional presence, business operations,
-            and finance & compliance into one connected hub — so cuentas de
-            cobro, PILA, and tax season stop being a monthly scramble.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button size="lg" asChild>
-              <Link href="/sign-up">Get started free</Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <a href="#pillars">See how it works</a>
-            </Button>
+      {/* Hero — design_handoff_freeops_ledger_quiet "Landing · hero", mocked
+          precisely: eyebrow / display-xl headline (max 520px) / body (max
+          420px) / action row, paired with a right aside that must not
+          stretch (`align-self: start`). */}
+      <section className="mx-auto max-w-[1280px] px-[22px] pt-[56px] pb-[60px] md:px-[44px]">
+        <div className="grid grid-cols-1 gap-[40px] md:grid-cols-[1fr_300px] md:gap-[56px]">
+          <div>
+            <p className="font-mono text-label-mono tracking-[0.08em] text-accent uppercase">
+              Para freelancers en Colombia
+            </p>
+            <h1 className="mt-[22px] max-w-measure text-display-xl text-ink">
+              El respaldo administrativo de un empleador. Sin el empleador.
+            </h1>
+            <p className="mt-[20px] max-w-[420px] text-body text-ink-soft">
+              Cuentas de cobro, PILA y seguimiento de clientes en un solo
+              lugar — para que dejen de ser una carrera cada fin de mes.
+            </p>
+            <div className="mt-[34px] flex flex-wrap items-center gap-3">
+              <Button size="default" asChild>
+                <Link href="/sign-up">Empezar gratis</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <a href="#pillars">Ver cómo funciona</a>
+              </Button>
+            </div>
+          </div>
+
+          <div className="self-start pt-2">
+            <p className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+              Se encarga de
+            </p>
+            <div className="mt-[20px] flex flex-col gap-[16px]">
+              {SE_ENCARGA_DE.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between gap-4 text-body-sm text-ink"
+                >
+                  <span>{row.label}</span>
+                  <span
+                    className={`font-mono text-[11px] ${row.marker === "auto" ? "text-accent" : "text-ink-muted"}`}
+                  >
+                    {row.marker}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="pillars" className="mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold md:text-4xl">
-            Everything scattered becomes one connected hub
+      {/* Pillars — reskinned from the old feature-card grid onto the
+          reference file's own "00 PRINCIPIOS" / "01 COLOR" numbered-section
+          layout (140px mono marker column + content), since the handoff
+          doesn't mock this section directly but establishes this exact
+          pattern for typographic (non-hero) sections. Content/copy
+          structure unchanged from the prior build, translated only. */}
+      <section id="pillars" className="mx-auto max-w-[1280px] px-[22px] py-[56px] md:px-[44px] md:py-[64px]">
+        <div className="max-w-measure">
+          <h2 className="text-display text-ink">
+            Todo lo disperso se vuelve un solo lugar conectado
           </h2>
-          <p className="mt-4 text-muted-foreground">
-            No more juggling documents, spreadsheets, and a mental list of
-            who owes you money. FreeOps covers the three sides of running a
-            freelance business in Colombia.
+          <p className="mt-4 text-body text-ink-soft">
+            Se acabó hacer malabares con documentos, hojas de cálculo y una
+            lista mental de quién te debe plata. freeops cubre los tres
+            frentes de manejar un negocio freelance en Colombia.
           </p>
         </div>
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {PILLARS.map((pillar) => {
-            const Icon = pillar.icon;
-            return (
-              <Card key={pillar.title} className="flex flex-col">
-                <CardHeader>
-                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </div>
-                  <CardTitle className="text-xl font-semibold">
-                    {pillar.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col">
-                  <p className="text-sm text-muted-foreground">
-                    {pillar.description}
+
+        <div className="mt-[56px] flex flex-col gap-[56px]">
+          {PILLARS.map((pillar) => (
+            <div
+              key={pillar.n}
+              className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr] md:gap-0"
+            >
+              <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+                {pillar.n}
+              </div>
+              <div>
+                <h3 className="text-h3 text-ink">{pillar.title}</h3>
+                <p className="mt-2 max-w-measure text-body-sm text-ink-soft">
+                  {pillar.description}
+                </p>
+                <ul className="mt-4 flex flex-col gap-2">
+                  {pillar.features.map((feature) => (
+                    <li key={feature} className="text-body-sm text-ink">
+                      <span className="mr-2 text-ink-faint">—</span>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Compliance — left-aligned typographic section, no centered prose
+          block (rule 1). Copy carried over verbatim/translated, no new
+          marketing claims added. */}
+      <section id="compliance" className="bg-surface-sunken">
+        <div className="mx-auto max-w-[1280px] px-[22px] py-[56px] md:px-[44px] md:py-[64px]">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr] md:gap-0">
+            <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+              04
+            </div>
+            <div className="max-w-measure">
+              <h2 className="text-display text-ink">
+                Hecho para el compliance colombiano, no pegado después
+              </h2>
+              <p className="mt-4 text-body text-ink-soft">
+                Las cuentas de cobro y los aportes a PILA no son opcionales —
+                y hacerlos mal se acumula con el tiempo: sanciones de la UGPP
+                del 35–60% sobre lo omitido, más la exposición a auditorías
+                de la DIAN que pueden aparecer años después. freeops calcula
+                lo que debes cada mes a partir de tus ingresos reales y te
+                lleva al operador de PILA que elijas para completar el pago —
+                sin adivinar, sin hoja de cálculo.
+              </p>
+              <p className="mt-4 text-body-sm text-ink-soft">
+                Los parámetros regulatorios están versionados, no quemados en
+                el código, así que cuando la UGPP o la DIAN actualicen las
+                reglas, freeops se actualiza con ellas — y tus registros
+                pasados siguen siendo reproducibles correctamente dentro de
+                la ventana de auditoría de ~5 años de la DIAN.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials — README "Carrusel / testimonios": no cards, quotes
+          at flex 0 0 240px separated by 40px gap, mono attribution, 18×2px
+          indicator bars. New section this stage (none existed before) using
+          the handoff's own sample quotes, which the README explicitly marks
+          as real, usable-as-is copy. */}
+      <section className="mx-auto max-w-[1280px] px-[22px] py-[56px] md:px-[44px] md:py-[64px]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr] md:gap-0">
+          <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+            05
+          </div>
+          <div>
+            <div className="flex flex-wrap items-start gap-[40px]">
+              {QUOTES.map((quote) => (
+                <div key={quote.author} className="box-border flex-none basis-[240px]">
+                  <p className="text-body-sm text-ink">{quote.text}</p>
+                  <p className="mt-3 font-mono text-[11px] text-ink-muted">
+                    {quote.author}
                   </p>
-                  <ul className="mt-4 space-y-2">
-                    {pillar.features.map((feature) => (
-                      <li
-                        key={feature}
-                        className="flex items-start gap-2 text-sm"
-                      >
-                        <CheckCircle2
-                          className="mt-0.5 size-4 shrink-0 text-primary"
-                          aria-hidden="true"
-                        />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex gap-1.5">
+              {QUOTES.map((quote, i) => (
+                <span
+                  key={quote.author}
+                  className={`h-0.5 w-[18px] ${i === 0 ? "bg-accent" : "bg-line"}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section id="compliance" className="bg-card">
-        <div className="mx-auto max-w-4xl px-4 py-16 text-center md:px-8 md:py-24">
-          <h2 className="text-3xl font-semibold md:text-4xl">
-            Built for Colombian compliance, not bolted on after
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Cuentas de cobro and PILA contributions aren&apos;t optional —
-            and getting them wrong compounds over time through UGPP
-            penalties of 35–60% on omitted contributions, plus DIAN audit
-            exposure that can surface years later. FreeOps calculates what
-            you owe each month from your actual income and guides you to
-            your chosen PILA operator to complete payment — no guessing, no
-            spreadsheet.
-          </p>
-          <p className="mx-auto mt-4 max-w-2xl text-sm text-muted-foreground">
-            Regulatory parameters are versioned, not hardcoded, so when UGPP
-            or DIAN update the rules, FreeOps updates with them — and your
-            past records stay correctly reproducible for DIAN&apos;s ~5-year
-            audit window.
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-4xl px-4 py-16 text-center md:px-8 md:py-24">
-        <h2 className="text-3xl font-semibold md:text-4xl">
-          Get your admin off your plate
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-          Set up your profile, connect your calendar, and generate your
-          first cuenta de cobro in one sitting.
-        </p>
-        <div className="mt-8">
-          <Button size="lg" asChild>
-            <Link href="/sign-up">Get started free</Link>
-          </Button>
+      {/* Closing CTA — left-aligned, ink primary button, copy unchanged
+          from the prior build's intent, translated. */}
+      <section className="mx-auto max-w-[1280px] px-[22px] py-[56px] md:px-[44px] md:py-[64px]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr] md:gap-0">
+          <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+            06
+          </div>
+          <div className="max-w-measure">
+            <h2 className="text-display text-ink">Saca tu admin de tu plato</h2>
+            <p className="mt-4 text-body text-ink-soft">
+              Configura tu perfil, conecta tu calendario y genera tu primera
+              cuenta de cobro en una sola sentada.
+            </p>
+            <div className="mt-[34px]">
+              <Button asChild>
+                <Link href="/sign-up">Empezar gratis</Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </section>
     </>

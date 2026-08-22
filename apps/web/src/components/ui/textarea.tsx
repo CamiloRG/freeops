@@ -2,12 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/** Same bottom-border-only treatment as Input — README: "textarea: same,
+ * min-height 3 lines, no resize handle styling." */
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
       data-slot="textarea"
       className={cn(
-        "flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        "field-sizing-content min-h-[calc(1.7em*3)] w-full border-b border-line bg-transparent px-0 py-[9px] font-sans text-body text-ink transition-colors duration-fast ease-out outline-none placeholder:text-ink-faint focus-visible:border-b-[1.5px] focus-visible:border-b-accent disabled:cursor-not-allowed disabled:text-ink-faint disabled:border-b-line-soft aria-invalid:border-b-[1.5px] aria-invalid:border-b-danger resize-none",
         className
       )}
       {...props}

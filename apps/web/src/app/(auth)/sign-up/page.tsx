@@ -1,53 +1,44 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { AuthShell } from "../auth-shell";
 import { SignUpForm } from "./sign-up-form";
 
-export const metadata: Metadata = { title: "Sign up" };
+export const metadata: Metadata = { title: "Crear cuenta" };
 
+/**
+ * The handoff doesn't mock sign-up explicitly — extrapolated from the
+ * "Sign in" mock: same `AuthShell` split panel and field style, with the
+ * left panel's copy/stats swapped for a first-time-visitor context instead
+ * of "welcome back" personal stats (there's no account data to show yet).
+ * Deliberately avoided inventing social-proof numbers (user counts, etc.)
+ * for the stats row — these three rows are product facts, not marketing
+ * claims, matching the "don't fabricate new marketing claims" instruction.
+ */
 export default function SignUpPage() {
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Create your account</CardTitle>
-        <CardDescription>
-          Set up your FreeOps admin & finance hub.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Button variant="outline" className="w-full justify-between" disabled title="Coming soon">
-            Continue with Google
-            <Badge variant="secondary">Coming soon</Badge>
-          </Button>
-          <Button variant="outline" className="w-full justify-between" disabled title="Coming soon">
-            Continue with Microsoft
-            <Badge variant="secondary">Coming soon</Badge>
-          </Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <Separator className="flex-1" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <Separator className="flex-1" />
-        </div>
+    <AuthShell
+      leftHeadline="Tu operación freelance, ordenada desde el primer día."
+      leftStats={[
+        { label: "Configuración", value: "~10 min" },
+        { label: "Tarjeta de crédito", value: "no requerida", accent: true },
+        { label: "Cancelas", value: "cuando quieras" },
+      ]}
+    >
+      <div className="w-full max-w-[320px]">
+        <p className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+          Crear cuenta
+        </p>
+        <h1 className="mt-2 text-h2 text-ink">Arma tu hub administrativo</h1>
+
         <SignUpForm />
-      </CardContent>
-      <CardFooter className="justify-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/sign-in" className="ml-1 font-medium text-primary">
-          Sign in
-        </Link>
-      </CardFooter>
-    </Card>
+
+        <p className="mt-[28px] text-[12px] text-ink-soft">
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/sign-in" className="border-b border-b-accent text-accent">
+            Iniciar sesión
+          </Link>
+        </p>
+      </div>
+    </AuthShell>
   );
 }

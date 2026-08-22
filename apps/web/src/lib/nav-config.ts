@@ -16,18 +16,18 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Personal",
     href: "/personal",
     icon: User,
-    description: "Profile, branding, resume, scheduling",
+    description: "Perfil, marca, hoja de vida, agenda",
   },
   {
-    label: "Business",
+    label: "Negocio",
     href: "/business",
     icon: Briefcase,
-    description: "Projects, contracts, kanban, CRM",
+    description: "Proyectos, contratos, kanban, CRM",
   },
   {
-    label: "Finance",
+    label: "Finanzas",
     href: "/finance",
     icon: Wallet,
-    description: "Cuentas de cobro, payments, PILA, tax vault",
+    description: "Cuentas de cobro, pagos, PILA, bóveda tributaria",
   },
 ];
