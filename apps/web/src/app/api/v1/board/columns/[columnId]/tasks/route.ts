@@ -26,6 +26,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         position: task.position,
         dueDate: task.dueDate,
         createdAt: task.createdAt,
+        taskNumber: task.taskNumber,
       },
       { status: 201 }
     );

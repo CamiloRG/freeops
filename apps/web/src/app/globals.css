@@ -57,6 +57,21 @@
   --danger: #c24b3a;
   --danger-bg: #f8e7e3;
 
+  /* ---- Kanban feature pack: label preset palette (6 new hues) ----
+     Plain-mono-text label colors, never a background chip — see
+     `kanban-label-colors.ts`'s doc comment. Deliberately distinct hues
+     from the 4 reserved semantic colors above (accent/success/warning/
+     danger are ALSO offered as label colors, but via those existing
+     tokens directly — a label should never be visually mistaken for a
+     real system status, hence 6 genuinely new hues here rather than
+     tints of the existing 4). */
+  --label-blue: #3d6693;
+  --label-teal: #2f7d8f;
+  --label-plum: #7a4a6f;
+  --label-clay: #a15a3a;
+  --label-olive: #6b7a3a;
+  --label-slate: #55606b;
+
   /* ---- Legacy shadcn semantic slots, re-pointed onto the tokens above ---- */
   --background: var(--paper);
   --foreground: var(--ink);
@@ -153,6 +168,13 @@
     --danger: #e07267;
     --danger-bg: color-mix(in oklab, var(--danger) 18%, var(--paper));
 
+    --label-blue: #6f9bc9;
+    --label-teal: #5fb0c0;
+    --label-plum: #b087a8;
+    --label-clay: #d08a5c;
+    --label-olive: #9fb06a;
+    --label-slate: #8b96a1;
+
     --background: var(--paper);
     --foreground: var(--ink);
     --card: var(--surface-raised);
@@ -209,6 +231,13 @@
   --warning-bg: color-mix(in oklab, var(--warning) 18%, var(--paper));
   --danger: #e07267;
   --danger-bg: color-mix(in oklab, var(--danger) 18%, var(--paper));
+
+  --label-blue: #6f9bc9;
+  --label-teal: #5fb0c0;
+  --label-plum: #b087a8;
+  --label-clay: #d08a5c;
+  --label-olive: #9fb06a;
+  --label-slate: #8b96a1;
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -297,6 +326,14 @@
   --color-danger-bg: var(--danger-bg);
   --color-success-bg: var(--success-bg);
   --color-warning-bg: var(--warning-bg);
+
+  /* ---- Kanban feature pack: label preset palette utilities (text-label-blue, …) ---- */
+  --color-label-blue: var(--label-blue);
+  --color-label-teal: var(--label-teal);
+  --color-label-plum: var(--label-plum);
+  --color-label-clay: var(--label-clay);
+  --color-label-olive: var(--label-olive);
+  --color-label-slate: var(--label-slate);
 
   --font-sans: var(--font-public-sans);
   --font-brand: var(--font-space-grotesk);

@@ -1,9 +1,23 @@
+export interface KanbanLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface KanbanChecklistSummary {
+  total: number;
+  done: number;
+}
+
 export interface KanbanTask {
   id: string;
   title: string;
   description: string | null;
   position: number;
   dueDate: string | null;
+  taskNumber?: number | null;
+  labels?: KanbanLabel[];
+  checklist?: KanbanChecklistSummary | null;
 }
 
 export interface KanbanColumn {
@@ -20,6 +34,18 @@ export interface KanbanBoardData {
   columns: KanbanColumn[];
 }
 
+export interface KanbanArchivedTask {
+  id: string;
+  title: string;
+  // Kanban feature pack: null when the task's column was hard-deleted
+  // while it was already soft-deleted (`ON DELETE SET NULL` — see
+  // `packages/db/src/schema/business.ts`'s doc comment on
+  // `kanbanTasks.columnId`).
+  columnId: string | null;
+  columnName: string | null;
+  deletedAt: string;
+}
+
 /**
  * The 4 seeded default column names are stored in English in the DB
  * (`projects.ts`'s `createProject` — a service-layer/schema-adjacent file,
@@ -27,20 +53,10 @@ export interface KanbanBoardData {
  * match of one of those 4 stored strings to its Spanish display label;
  * anything else (a renamed column, or a custom one the user added) renders
  * as typed, untouched. Translating the *display* only, not the stored
- * value. Shared here (not local to one component) so every place that
- * shows a column name — the column header itself (`kanban-column.tsx`) AND
- * the "Mover a" menu listing other columns (`kanban-card.tsx`) — stays in
- * sync; keeping two separate copies previously let the column header show
- * "EN PROGRESO" while the move-menu still showed raw "In Progress" for the
- * exact same column.
+ * value. Re-exported from `@/lib/kanban/column-display` (kanban feature
+ * pack) so the server-side WIP-limit rejection message can use the exact
+ * same map without duplicating it — see that module's doc comment for why
+ * duplication is specifically the bug class this codebase already hit
+ * once (commit `cb1cce0`).
  */
-const DEFAULT_COLUMN_DISPLAY_LABEL: Record<string, string> = {
-  Backlog: "Backlog",
-  "In Progress": "En progreso",
-  Review: "Revisión",
-  Done: "Hecho",
-};
-
-export function displayColumnName(name: string) {
-  return DEFAULT_COLUMN_DISPLAY_LABEL[name] ?? name;
-}
+export { displayColumnName } from "@/lib/kanban/column-display";

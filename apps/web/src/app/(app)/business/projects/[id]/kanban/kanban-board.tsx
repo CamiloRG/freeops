@@ -33,11 +33,50 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
-import { displayColumnName, type KanbanColumn as KanbanColumnData, type KanbanTask } from "./kanban-types";
+import {
+  displayColumnName,
+  type KanbanColumn as KanbanColumnData,
+  type KanbanLabel,
+  type KanbanTask,
+} from "./kanban-types";
+import { TaskDetailDialog } from "./task-detail-dialog";
+import { ArchivedTasksDialog } from "./archived-tasks-dialog";
+import { ManageLabelsDialog } from "./manage-labels-dialog";
 
 const MOVE_ERROR = "No se pudo mover la tarea — revisa tu conexión e intenta de nuevo.";
+
+/** In-column sort (kanban feature pack, item 5) — display-only, never persisted. */
+type SortMode = "manual" | "dueDate";
+
+/** Board filter (kanban feature pack, item 6) — keyword (title + description) AND label match, both display-only. */
+function taskMatchesFilter(task: KanbanTask, filterText: string, filterLabelIds: string[]): boolean {
+  const text = filterText.trim().toLowerCase();
+  const matchesText =
+    !text || task.title.toLowerCase().includes(text) || (task.description ?? "").toLowerCase().includes(text);
+  const matchesLabels =
+    filterLabelIds.length === 0 || (task.labels ?? []).some((l) => filterLabelIds.includes(l.id));
+  return matchesText && matchesLabels;
+}
+
+/** Ascending by due date, nulls last — pure display re-sort, `position` is never read or written here. */
+function sortTasksForDisplay(tasks: KanbanTask[], sortMode: SortMode): KanbanTask[] {
+  if (sortMode !== "dueDate") return tasks;
+  return [...tasks].sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+}
 
 function ColumnSkeleton() {
   return (
@@ -88,6 +127,17 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const [deleteColumnTarget, setDeleteColumnTarget] = useState<KanbanColumnData | null>(null);
   const [moveTasksTo, setMoveTasksTo] = useState<string>("");
 
+  // Kanban feature pack additions ------------------------------------------
+  const [labels, setLabels] = useState<KanbanLabel[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const [filterText, setFilterText] = useState("");
+  const [filterLabelIds, setFilterLabelIds] = useState<string[]>([]);
+
+  const selectedTask = columns.flatMap((c) => c.tasks).find((t) => t.id === selectedTaskId) ?? null;
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -106,6 +156,13 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     return body as { id: string; columns: KanbanColumnData[] };
   }
 
+  async function fetchLabels(id: string) {
+    const res = await fetch(`/api/v1/projects/${id}/board/labels`);
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body) return [];
+    return body.labels as KanbanLabel[];
+  }
+
   useEffect(() => {
     let cancelled = false;
     fetchBoard(projectId).then((result) => {
@@ -117,6 +174,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       setBoardId(result.id);
       setColumns(result.columns);
       setState("ready");
+    });
+    fetchLabels(projectId).then((result) => {
+      if (cancelled) return;
+      setLabels(result);
     });
     return () => {
       cancelled = true;
@@ -163,8 +224,15 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       body: JSON.stringify({ columnId, position }),
     });
     if (!res.ok) {
+      // Kanban feature pack, item 1: a WIP-limit rejection (422) carries a
+      // specific, honest message naming the real column/limit — read it
+      // from the error envelope rather than always showing the generic
+      // MOVE_ERROR. `applyTaskMove` is the single function behind BOTH the
+      // drag path and the accessible "Move to" menu (see its own doc
+      // comment below), so this one fix covers both identically.
+      const body = await res.json().catch(() => null);
       setColumns(rollback);
-      showBoardError(MOVE_ERROR);
+      showBoardError(body?.error?.message ?? MOVE_ERROR);
     } else {
       clearBoardError();
     }
@@ -191,6 +259,15 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     }
 
     if (activeType === "task") {
+      // Kanban feature pack, item 5 (in-column sort): "Fecha límite" view
+      // renders each column's tasks in a display-only order that is NOT
+      // the real stored `position` sequence — persisting a reorder
+      // computed against that view would silently corrupt the real manual
+      // order. Simplest safe choice: while sorted by due date, a task
+      // drag is a no-op (nothing in `columns` state changes, so the card
+      // just settles back into its rendered slot) — only "Manual" mode
+      // persists a reorder. Column drag/reorder is unaffected either way.
+      if (sortMode !== "manual") return;
       const taskId = active.id as string;
       const sourceColumn = columns.find((c) => c.tasks.some((t) => t.id === taskId));
       if (!sourceColumn) return;
@@ -259,8 +336,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     });
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) {
+      // Kanban feature pack, item 1: adding directly into a full column
+      // rejects with a specific WIP-limit message (422) — surfaced here
+      // the same way a rejected move is, rather than the generic fallback.
       setColumns(rollback);
-      showBoardError("No se pudo agregar esa tarea — intenta de nuevo.");
+      showBoardError(body?.error?.message ?? "No se pudo agregar esa tarea — intenta de nuevo.");
       return;
     }
     clearBoardError();
@@ -316,6 +396,47 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     } else {
       clearBoardError();
     }
+  }
+
+  /** Kanban feature pack, item 1: set/clear a column's WIP limit — reuses the existing `PATCH .../board/columns/:columnId` route. */
+  async function handleSetWipLimit(columnId: string, limit: number | null) {
+    const rollback = columns;
+    setColumns((cols) => cols.map((c) => (c.id === columnId ? { ...c, wipLimit: limit } : c)));
+    const res = await fetch(`/api/v1/board/columns/${columnId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wipLimit: limit }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setColumns(rollback);
+      showBoardError(body?.error?.message ?? "No se pudo actualizar el límite de tareas — intenta de nuevo.");
+    } else {
+      clearBoardError();
+    }
+  }
+
+  /**
+   * Kanban feature pack, item 2/3/4: closing the Task Detail dialog always
+   * refetches the board — simplest-correct way to make sure the card
+   * face's checklist indicator/labels/title reflect whatever changed
+   * inside the dialog (checklist add/toggle/delete, label attach/detach,
+   * field edits), same "refetch after mutation" convention `restoreTask`'s
+   * own UI uses.
+   */
+  function handleCloseTaskDetail() {
+    setSelectedTaskId(null);
+    fetchBoard(projectId).then((result) => {
+      if (result) setColumns(result.columns);
+    });
+  }
+
+  /** Kanban feature pack, item 2: refresh the board after a restore so the card reappears in its (possibly fallback) column. */
+  function handleTaskRestored() {
+    fetchBoard(projectId).then((result) => {
+      if (result) setColumns(result.columns);
+    });
+    clearBoardError();
   }
 
   async function confirmDeleteColumn() {
@@ -402,21 +523,108 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         </InlineNotice>
       )}
 
+      {/*
+        Board toolbar (kanban feature pack, items 2/3/5/6): filter (text +
+        label multi-select), the in-column sort toggle, and the "Ver
+        archivadas"/"Administrar etiquetas" affordances — all plain mono
+        text/inputs, no icons, matching this board's existing "+ Agregar
+        columna" text-affordance convention.
+      */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Input
+          placeholder="Buscar tareas…"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          className="h-8 w-56"
+        />
+        {labels.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="font-mono text-[11px] text-ink-muted underline decoration-ink-muted underline-offset-2 hover:text-ink"
+              >
+                Etiquetas{filterLabelIds.length > 0 ? ` (${filterLabelIds.length})` : ""}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Filtrar por etiqueta</DropdownMenuLabel>
+              {labels.map((label) => (
+                <DropdownMenuCheckboxItem
+                  key={label.id}
+                  checked={filterLabelIds.includes(label.id)}
+                  onCheckedChange={(checked) =>
+                    setFilterLabelIds((prev) =>
+                      checked ? [...prev, label.id] : prev.filter((id) => id !== label.id)
+                    )
+                  }
+                >
+                  {label.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <div className="flex items-center gap-1.5 font-mono text-[11px] text-ink-muted">
+          <span>Ordenar:</span>
+          <button
+            type="button"
+            onClick={() => setSortMode("manual")}
+            className={sortMode === "manual" ? "text-ink underline" : "hover:text-ink"}
+          >
+            Manual
+          </button>
+          <span>/</span>
+          <button
+            type="button"
+            onClick={() => setSortMode("dueDate")}
+            className={sortMode === "dueDate" ? "text-ink underline" : "hover:text-ink"}
+          >
+            Fecha límite
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setArchivedOpen(true)}
+          className="font-mono text-[11px] text-ink-muted underline decoration-ink-muted underline-offset-2 hover:text-ink"
+        >
+          Ver archivadas
+        </button>
+        <button
+          type="button"
+          onClick={() => setManageLabelsOpen(true)}
+          className="font-mono text-[11px] text-ink-muted underline decoration-ink-muted underline-offset-2 hover:text-ink"
+        >
+          Administrar etiquetas
+        </button>
+      </div>
+
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex items-start gap-3 overflow-x-auto pb-2" role="application" aria-label="Tablero kanban">
           <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
-            {columns.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                otherColumns={columns.filter((c) => c.id !== column.id)}
-                onRename={(name) => handleRenameColumn(column.id, name)}
-                onRequestDelete={() => setDeleteColumnTarget(column)}
-                onAddTask={(title) => handleAddTask(column.id, title)}
-                onMoveTask={(taskId, targetColumnId) => handleMoveViaMenu(taskId, targetColumnId)}
-                onDeleteTask={handleDeleteTask}
-              />
-            ))}
+            {columns.map((column) => {
+              const visibleTasks = sortTasksForDisplay(
+                column.tasks.filter((t) => taskMatchesFilter(t, filterText, filterLabelIds)),
+                sortMode
+              );
+              return (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  visibleTasks={visibleTasks}
+                  otherColumns={columns.filter((c) => c.id !== column.id)}
+                  onRename={(name) => handleRenameColumn(column.id, name)}
+                  onRequestDelete={() => setDeleteColumnTarget(column)}
+                  onAddTask={(title) => handleAddTask(column.id, title)}
+                  onMoveTask={(taskId, targetColumnId) => handleMoveViaMenu(taskId, targetColumnId)}
+                  onDeleteTask={handleDeleteTask}
+                  onOpenTaskDetail={(taskId) => setSelectedTaskId(taskId)}
+                  onSetWipLimit={(limit) => handleSetWipLimit(column.id, limit)}
+                />
+              );
+            })}
           </SortableContext>
           <div className="w-72 shrink-0">
             <Button type="button" variant="ghost" className="w-full" onClick={() => setAddColumnOpen(true)}>
@@ -438,6 +646,24 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
           )}
         </DragOverlay>
       </DndContext>
+
+      <TaskDetailDialog task={selectedTask} boardLabels={labels} onClose={handleCloseTaskDetail} />
+
+      <ArchivedTasksDialog
+        open={archivedOpen}
+        projectId={projectId}
+        onOpenChange={setArchivedOpen}
+        onRestored={handleTaskRestored}
+        onError={showBoardError}
+      />
+
+      <ManageLabelsDialog
+        open={manageLabelsOpen}
+        onOpenChange={setManageLabelsOpen}
+        projectId={projectId}
+        labels={labels}
+        onLabelsChanged={setLabels}
+      />
 
       <Dialog open={addColumnOpen} onOpenChange={setAddColumnOpen}>
         <DialogContent>

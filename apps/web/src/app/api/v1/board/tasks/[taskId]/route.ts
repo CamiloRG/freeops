@@ -30,6 +30,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       position: task.position,
       dueDate: task.dueDate,
       columnId: task.columnId,
+      taskNumber: task.taskNumber,
     });
   } catch (error) {
     return toApiErrorResponse(error);
