@@ -6,6 +6,7 @@ import {
   getMonthlyAiSummary,
   getTopAiUsersThisMonth,
 } from "@/lib/admin/ops-metrics";
+import { getPlatformSummary } from "@/lib/admin/platform-metrics";
 
 export const runtime = "nodejs";
 
@@ -13,16 +14,28 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(value < 1 ? 4 : 2)}`;
 }
 
+function formatPct(value: number): string {
+  return `${(value * 100).toFixed(0)}%`;
+}
+
 /**
- * First cut of the platform-operator dashboard — the "cost & quota tuning"
- * pillar only (see the conversation this was built from for the other
- * pillars: business health/MRR waits on Phase 12 Stripe, product usage
- * waits on a PostHog/event-log decision). Server Component: every query
- * runs server-side via `getDb()` (RLS-bypassing, admin-only), nothing here
- * is fetched client-side.
+ * Platform-operator dashboard. Two sections: "Plataforma" (platform.ts —
+ * signups/activity/adoption, everything buildable today from existing
+ * tables, zero new schema) and "Extracción de hoja de vida" (ops-
+ * metrics.ts — the cost & quota-tuning pillar this page started with).
+ * Deliberately NOT here, per the feasibility discussion this was built
+ * from: tier/MRR (blocked on Phase 12 Stripe), real event-level "most-used
+ * features" and true engagement-based "active users" (both blocked on a
+ * PostHog/event-log decision — "active" below is a last-login proxy, not
+ * true engagement), and kanban task completion rate (no reliable "done"
+ * signal in the schema — columns are freely renamed per board, unlike
+ * CRM's `isWonStage`/`isLostStage`). Server Component: every query runs
+ * server-side via `getDb()` (RLS-bypassing, admin-only), nothing here is
+ * fetched client-side.
  */
 export default async function AdminOperationsPage() {
-  const [summary, dailyCost, topUsers, heaviestQueries] = await Promise.all([
+  const [platform, summary, dailyCost, topUsers, heaviestQueries] = await Promise.all([
+    getPlatformSummary(),
     getMonthlyAiSummary(),
     getDailyAiCost(14),
     getTopAiUsersThisMonth(10),
@@ -33,6 +46,10 @@ export default async function AdminOperationsPage() {
     summary.usersAtCap + summary.usersUnderCap > 0
       ? summary.usersAtCap / (summary.usersAtCap + summary.usersUnderCap)
       : 0;
+  const projectAdoptionRatio =
+    platform.totalFreelancers > 0 ? platform.usersWithAtLeastOneProject / platform.totalFreelancers : 0;
+  const crmClosedTotal = platform.crmWonCount + platform.crmLostCount;
+  const crmWinRatio = crmClosedTotal > 0 ? platform.crmWonCount / crmClosedTotal : null;
 
   return (
     <div className="mx-auto max-w-[960px] px-6 py-10 sm:px-10">
@@ -40,8 +57,38 @@ export default async function AdminOperationsPage() {
 
       <h1 className="mt-4 text-h1 text-ink">Operaciones</h1>
       <p className="mt-2 max-w-[560px] text-body text-ink-soft">
-        Costo real de IA y señal de calibración de cuotas — solo lo que ya está instrumentado.
+        Uso de la plataforma, costo real de IA y señal de calibración de cuotas — solo lo que ya está instrumentado.
       </p>
+
+      <section className="mt-12">
+        <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">Plataforma</div>
+        <StatTileGrid className="mt-6">
+          <StatTile label="Freelancers totales" value={platform.totalFreelancers} />
+          <StatTile label="Nuevos — 7 días" value={platform.newUsers7d} />
+          <StatTile label="Nuevos — 30 días" value={platform.newUsers30d} />
+          <StatTile
+            label="Activos — 7 días"
+            value={platform.activeUsers7d}
+            hint="inició sesión, no uso real"
+          />
+          <StatTile
+            label="Activos — 30 días"
+            value={platform.activeUsers30d}
+            hint="inició sesión, no uso real"
+          />
+          <StatTile
+            label="Proyectos por usuario"
+            value={platform.avgProjectsPerUser.toFixed(2)}
+            hint={`${formatPct(projectAdoptionRatio)} con ≥1 proyecto`}
+          />
+          <StatTile
+            label="CRM — tasa de cierre ganado"
+            value={crmWinRatio === null ? "—" : formatPct(crmWinRatio)}
+            hint={`${platform.crmWonCount} ganadas · ${platform.crmLostCount} perdidas · ${platform.crmOpenCount} abiertas`}
+          />
+          <StatTile label="Tareas kanban totales" value={platform.totalKanbanTasks} />
+        </StatTileGrid>
+      </section>
 
       <section className="mt-12">
         <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
