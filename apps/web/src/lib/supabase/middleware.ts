@@ -14,7 +14,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // (app) route group — personal/business/finance — requires a session.
-const PROTECTED_PREFIXES = ["/personal", "/business", "/finance"];
+// /admin also requires a session here, but this is only the "signed in at
+// all" check — the real "is this person a platform admin" authorization
+// happens in (admin)/admin/layout.tsx via a real DB lookup (platform_admins
+// has no policies, so it can't be checked from this edge-runtime layer,
+// which has no Postgres access).
+const PROTECTED_PREFIXES = ["/personal", "/business", "/finance", "/admin"];
 // (auth) route group — signed-in users shouldn't see these.
 const AUTH_PATHS = ["/sign-in", "/sign-up"];
 // Where an authenticated user lands after sign-in/sign-up, and where an

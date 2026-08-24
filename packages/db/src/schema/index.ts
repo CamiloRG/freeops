@@ -15,3 +15,4 @@ export * from "./compliance";
 export * from "./billing";
 export * from "./audit";
 export * from "./ai";
+export * from "./platform-admin";

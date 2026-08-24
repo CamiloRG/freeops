@@ -1,0 +1,15 @@
+-- Hand-authored, not drizzle-kit-generated (same category as
+-- 0003_auth_trigger.sql / 0004_row_level_security.sql — DB-level policy
+-- work with no corresponding Drizzle schema object, so no
+-- meta/*_snapshot.json).
+--
+-- platform_admins is the one deliberate exception to 0004's "every table
+-- gets an owner-scoped policy" pattern: there is no owner here, and no
+-- product-facing code should ever be able to read this table at all — see
+-- packages/db/src/schema/platform-admin.ts's doc comment. RLS is enabled
+-- with ZERO policies, which is a hard default-deny for the `anon` and
+-- `authenticated` Postgres roles (the roles `withRlsContext` impersonates
+-- per-request). Only `getDb()` (packages/db/src/client.ts), which connects
+-- as the admin/background-job role and bypasses RLS entirely by design,
+-- can read or write this table.
+alter table public.platform_admins enable row level security;
