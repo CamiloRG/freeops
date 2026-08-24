@@ -14,10 +14,23 @@ import { eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "@freeops/db/client";
 import { crmOpportunities, crmPipelineStages, kanbanTasks, projects, users } from "@freeops/db/schema";
 
-function daysAgo(n: number): Date {
+/**
+ * Returns an ISO string, not a `Date` — every call site interpolates this
+ * into a raw `sql` template (either a `.select({...})` fragment or
+ * `db.execute(sql...)`), and a bare JS `Date` object crashes there: it's
+ * only Drizzle's own typed operators (`gte`, `eq`, ...) that know how to
+ * serialize a `Date` for postgres.js's bind protocol — a raw `sql`
+ * template interpolation does not go through that same column-aware
+ * mapping and hits postgres.js's byte-encoder with an object it can't
+ * handle. Confirmed by direct reproduction: `gte(col, someDate)` works,
+ * `sql\`col >= ${someDate}\`` throws `ERR_INVALID_ARG_TYPE`. `ops-
+ * metrics.ts` never hit this because it only ever compares dates via
+ * `gte()`, never via raw `sql` interpolation.
+ */
+function daysAgo(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - n);
-  return d;
+  return d.toISOString();
 }
 
 export interface PlatformSummary {
