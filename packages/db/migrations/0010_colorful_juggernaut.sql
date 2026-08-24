@@ -1,0 +1,1 @@
+ALTER TABLE "crm_opportunities" ADD COLUMN "title" text NOT NULL;

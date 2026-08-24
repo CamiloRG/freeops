@@ -71,6 +71,13 @@
       "when": 1787517377646,
       "tag": "0009_kanban_tasks_column_set_null",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787580701853,
+      "tag": "0010_colorful_juggernaut",
+      "breakpoints": true
     }
   ]
 }

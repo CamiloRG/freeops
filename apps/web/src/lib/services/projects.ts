@@ -3,10 +3,13 @@
  * Same `RlsTx` + `userId` + typed-input shape as every other service (see
  * `@/lib/services/tax-info` for the closest existing reference).
  *
- * `opportunityId` is a real FK to `crm_opportunities` (already in the
- * schema) but is never set by anything in this phase — every project
- * created here is `source: "manual"`. Phase 6's Closed-Won automation is
- * the only thing that will ever populate it.
+ * `opportunityId` is a real FK to `crm_opportunities`. `createProject`
+ * below always leaves it null (`source: "manual"`); Phase 6's
+ * `@/lib/services/crm`'s Closed-Won automation is the only thing that ever
+ * populates it, via `seedProjectDefaults` — the board+4-default-columns
+ * insert this file already did for manual creation, extracted so both
+ * paths share exactly one implementation of "what a brand-new project's
+ * kanban board looks like" rather than drifting out of sync.
  */
 import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { contractDocuments, kanbanBoards, kanbanColumns, projects } from "@freeops/db/schema";
@@ -58,12 +61,27 @@ export async function getProjectDetail(tx: RlsTx, userId: string, projectId: str
   return { project, contractDocuments: documents, kanbanBoardId: board?.id ?? null };
 }
 
+/** Inserts the `kanban_boards` row plus the 4 seeded default columns for a just-created project — app_spec.md's explicit "Default columns seeded on project creation" requirement, shared by every project-creation path. */
+async function seedProjectDefaults(tx: RlsTx, projectId: string) {
+  const [board] = await tx.insert(kanbanBoards).values({ projectId }).returning();
+
+  await tx.insert(kanbanColumns).values(
+    DEFAULT_COLUMNS.map((name, index) => ({
+      boardId: board.id,
+      name,
+      position: index,
+      isDefault: true,
+    }))
+  );
+
+  return board;
+}
+
 /**
- * Creates a project and, in the same transaction, its `kanban_boards` row
- * plus the 4 seeded default columns — app_spec.md's explicit "Default
- * columns seeded on project creation" requirement. `tx` is already
- * transaction-scoped (see `withRlsContext`), so plain sequential inserts
- * here are already atomic with the rest of the request.
+ * Creates a project and, in the same transaction, its default kanban board
+ * (see `seedProjectDefaults`). `tx` is already transaction-scoped (see
+ * `withRlsContext`), so plain sequential inserts here are already atomic
+ * with the rest of the request.
  */
 export async function createProject(tx: RlsTx, userId: string, input: ProjectCreateInput) {
   const [project] = await tx
@@ -83,16 +101,51 @@ export async function createProject(tx: RlsTx, userId: string, input: ProjectCre
     })
     .returning();
 
-  const [board] = await tx.insert(kanbanBoards).values({ projectId: project.id }).returning();
+  const board = await seedProjectDefaults(tx, project.id);
 
-  await tx.insert(kanbanColumns).values(
-    DEFAULT_COLUMNS.map((name, index) => ({
-      boardId: board.id,
-      name,
-      position: index,
-      isDefault: true,
-    }))
-  );
+  return { project, kanbanBoardId: board.id };
+}
+
+/**
+ * Creates a project pre-filled from a closed-won CRM opportunity —
+ * `@/lib/services/crm`'s `updateOpportunity` is the only caller. Same
+ * default-board seeding as `createProject`; the only structural difference
+ * is `opportunityId` being set and every field coming from the opportunity
+ * rather than a user-submitted form. `startDate` is deliberately left null
+ * (the freelancer fills it in manually once real work begins — only
+ * `expectedStartDate` is known at close-won time); `status` stays the
+ * table's own default (`active`).
+ */
+export async function createProjectFromOpportunity(
+  tx: RlsTx,
+  userId: string,
+  opportunityId: string,
+  values: {
+    clientName: string;
+    clientEmail: string | null;
+    title: string;
+    scopeNotes: string | null;
+    dealValue: string | null;
+    currency: string;
+    expectedStartDate: string | null;
+  }
+) {
+  const [project] = await tx
+    .insert(projects)
+    .values({
+      userId,
+      opportunityId,
+      clientName: values.clientName,
+      clientEmail: values.clientEmail,
+      title: values.title,
+      scopeNotes: values.scopeNotes,
+      dealValue: values.dealValue,
+      currency: values.currency,
+      expectedStartDate: values.expectedStartDate,
+    })
+    .returning();
+
+  const board = await seedProjectDefaults(tx, project.id);
 
   return { project, kanbanBoardId: board.id };
 }

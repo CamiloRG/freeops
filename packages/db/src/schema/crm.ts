@@ -46,6 +46,17 @@ export const crmOpportunities = pgTable(
     stageId: uuid("stage_id")
       .notNull()
       .references(() => crmPipelineStages.id, { onDelete: "restrict" }),
+    // Added in Phase 6 (the phase that first actually builds the CRM UI/
+    // API) — the Data Model section's illustrative SQL never included a
+    // deal-title column, but the API Contracts section's own
+    // `crm_opportunities` response examples show a `title` distinct from
+    // `clientName` (e.g. a project name like "Website Redesign" for client
+    // "Acme Corp"), and `projects.title` (NOT NULL) needs a real source
+    // value when the Closed-Won automation auto-creates a project — see
+    // `@/lib/services/crm`'s `updateOpportunity`. Safe as NOT NULL with no
+    // default: this table has carried zero rows since Phase 2 (no CRM
+    // UI/API existed to write to it until now), so no backfill is needed.
+    title: text("title").notNull(),
     clientName: text("client_name").notNull(),
     clientEmail: citext("client_email"),
     clientPhone: text("client_phone"),
