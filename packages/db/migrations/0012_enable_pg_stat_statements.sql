@@ -1,0 +1,20 @@
+-- Hand-authored, not drizzle-kit-generated (same category as
+-- 0003_auth_trigger.sql / 0004_row_level_security.sql — DB-level setup with
+-- no corresponding Drizzle schema object, so no meta/*_snapshot.json).
+--
+-- Enables pg_stat_statements, the Postgres extension that tracks per-query
+-- execution stats (calls, total/mean time, rows) across the whole database.
+-- It is the practical proxy for "database cost" that FreeOps's admin
+-- dashboard needs: Postgres/Supabase bills by compute-instance size, not
+-- per query, so there is no literal $-per-query figure to capture — but
+-- total/mean execution time by query IS what actually drives that compute
+-- cost, and this is the standard way to see it.
+--
+-- Supabase preloads pg_stat_statements into shared_preload_libraries by
+-- default on every project, so `CREATE EXTENSION` here is enough — no
+-- Postgres restart required. Once enabled, this same data is ALSO visible
+-- for free with zero app code in Supabase Studio → Reports → Query
+-- Performance; this migration exists so FreeOps's own /admin dashboard can
+-- read the same view directly instead of sending an operator to a second
+-- dashboard.
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
