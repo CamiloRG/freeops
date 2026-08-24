@@ -29,14 +29,35 @@ export interface ExtractedResumeEntry {
   endDate: string | null;
 }
 
+export interface ExtractionUsage {
+  inputTokens: number;
+  outputTokens: number;
+  /** How many raw `messages.create` calls this usage total covers — see ai.ts's `apiCallCount` doc comment. */
+  apiCallCount: number;
+}
+
 export interface ExtractedResume {
   headline: string | null;
   summary: string | null;
   skills: string[];
   entries: ExtractedResumeEntry[];
+  usage: ExtractionUsage;
 }
 
-export class ExtractionError extends Error {}
+export class ExtractionError extends Error {
+  /**
+   * Set whenever the failing call actually got a response from Claude (real
+   * tokens were spent) even though extraction itself failed — e.g. no
+   * tool_use block came back. Undefined only for genuine no-response
+   * failures (network/API error), where nothing was actually billed.
+   */
+  usage?: ExtractionUsage;
+
+  constructor(message: string, usage?: ExtractionUsage) {
+    super(message);
+    this.usage = usage;
+  }
+}
 
 const RESUME_TOOL_NAME = "record_resume_fields";
 
@@ -185,11 +206,16 @@ function anyFieldCorrupted(raw: RawExtraction): boolean {
   );
 }
 
+interface ApiCallResult {
+  raw: RawExtraction;
+  usage: ExtractionUsage;
+}
+
 /** One raw `messages.create` call against the extraction tool, unsanitized. */
 async function callExtractionApi(
   client: Anthropic,
   documentBlock: Anthropic.Messages.ContentBlockParam
-): Promise<RawExtraction> {
+): Promise<ApiCallResult> {
   let response: Anthropic.Message;
   try {
     response = await client.messages.create({
@@ -211,19 +237,30 @@ async function callExtractionApi(
       ],
     });
   } catch (error) {
+    // No response at all — nothing was actually billed, so no usage to
+    // attach (ExtractionError.usage stays undefined).
     throw new ExtractionError(
       `Anthropic API call failed: ${error instanceof Error ? error.message : "unknown error"}`
     );
   }
 
+  // Captured immediately once a response exists, BEFORE any further check
+  // that might throw — a response with no usable tool_use block still cost
+  // real tokens and must not be tracked as free.
+  const usage: ExtractionUsage = {
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    apiCallCount: 1,
+  };
+
   const toolUse = response.content.find(
     (block): block is Anthropic.ToolUseBlock => block.type === "tool_use" && block.name === RESUME_TOOL_NAME
   );
   if (!toolUse) {
-    throw new ExtractionError("Claude did not return structured resume data for this file.");
+    throw new ExtractionError("Claude did not return structured resume data for this file.", usage);
   }
 
-  return toolUse.input as RawExtraction;
+  return { raw: toolUse.input as RawExtraction, usage };
 }
 
 /**
@@ -250,7 +287,37 @@ export async function extractResumeFromFile(params: {
       ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64Data } }
       : { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } };
 
-  let raw = await callExtractionApi(client, documentBlock);
+  // Running usage total across every raw API call this extraction attempt
+  // makes (1 normally, 2 if the corruption retry below fires) — the real
+  // cost of ONE logical "import from resume" action, not just one HTTP
+  // call. See ai.ts's `apiCallCount` doc comment for why these are summed
+  // rather than only the last call's usage being kept.
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let apiCallCount = 0;
+
+  async function callAndTrackUsage(): Promise<RawExtraction> {
+    apiCallCount++;
+    try {
+      const result = await callExtractionApi(client, documentBlock);
+      totalInputTokens += result.usage.inputTokens;
+      totalOutputTokens += result.usage.outputTokens;
+      return result.raw;
+    } catch (error) {
+      if (error instanceof ExtractionError) {
+        if (error.usage) {
+          totalInputTokens += error.usage.inputTokens;
+          totalOutputTokens += error.usage.outputTokens;
+        }
+        // Overwrite with the running total so the caller sees the full cost
+        // of this extraction attempt so far, not just this one call's usage.
+        error.usage = { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, apiCallCount };
+      }
+      throw error;
+    }
+  }
+
+  let raw = await callAndTrackUsage();
 
   // Defense-in-depth: if the tool-call-tag leak (see TOOL_ARTIFACT_PATTERN's
   // doc comment) shows up anywhere in the result, retry the request once —
@@ -260,7 +327,7 @@ export async function extractResumeFromFile(params: {
   // field NEVER reaches the caller either way — the retry only improves
   // completeness, it is never relied on for safety by itself.
   if (anyFieldCorrupted(raw)) {
-    const retried = await callExtractionApi(client, documentBlock);
+    const retried = await callAndTrackUsage();
     if (!anyFieldCorrupted(retried)) {
       raw = retried;
     }
@@ -280,5 +347,6 @@ export async function extractResumeFromFile(params: {
       }))
       .filter((entry) => Boolean(entry.title))
       .map((entry) => ({ ...entry, title: entry.title as string }) satisfies ExtractedResumeEntry),
+    usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, apiCallCount },
   };
 }

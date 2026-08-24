@@ -18,6 +18,7 @@ import { toApiErrorResponse, apiErrorResponse, ApiError } from "@/lib/api/errors
 import { FileValidationError, sniffAndValidate } from "@/lib/storage/r2";
 import { determineTier, isUnderDefaultTierLimit } from "@/lib/ai/rate-limit";
 import { ExtractionError, RESUME_EXTRACTION_MODEL, extractResumeFromFile } from "@/lib/ai/extract-resume";
+import { computeHaikuCostUsd } from "@/lib/ai/pricing";
 import { aiExtractionLog } from "@freeops/db/schema";
 
 export const runtime = "nodejs";
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
 
       try {
         const extracted = await extractResumeFromFile({ apiKey, buffer, mimeType });
+        const { inputTokens, outputTokens, apiCallCount } = extracted.usage;
         await tx.insert(aiExtractionLog).values({
           userId: user.id,
           documentType: "resume",
@@ -74,6 +76,10 @@ export async function POST(request: NextRequest) {
           provider: "anthropic",
           model: RESUME_EXTRACTION_MODEL,
           status: "succeeded",
+          inputTokens,
+          outputTokens,
+          apiCallCount,
+          costUsd: computeHaikuCostUsd(inputTokens, outputTokens).toFixed(6),
         });
 
         const quota =
@@ -83,6 +89,11 @@ export async function POST(request: NextRequest) {
 
         return { extracted, tier, quota };
       } catch (error) {
+        // A failing call may still have spent real tokens (see
+        // ExtractionError.usage's doc comment) — record what was actually
+        // billed, not just that the attempt failed, so cost tracking isn't
+        // blind to failed-but-charged calls.
+        const usage = error instanceof ExtractionError ? error.usage : undefined;
         await tx.insert(aiExtractionLog).values({
           userId: user.id,
           documentType: "resume",
@@ -90,6 +101,10 @@ export async function POST(request: NextRequest) {
           provider: "anthropic",
           model: RESUME_EXTRACTION_MODEL,
           status: "failed",
+          inputTokens: usage?.inputTokens ?? null,
+          outputTokens: usage?.outputTokens ?? null,
+          apiCallCount: usage?.apiCallCount ?? 1,
+          costUsd: usage ? computeHaikuCostUsd(usage.inputTokens, usage.outputTokens).toFixed(6) : null,
         });
         if (error instanceof ExtractionError) {
           throw new ApiError(

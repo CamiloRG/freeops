@@ -21,7 +21,7 @@
  * avoids the real account-deletion friction the ADR's TRADEOFFS section
  * documents for `banking_details`' restrict FK.
  */
-import { check, index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { bytea, idColumn, softDelete, timestamps } from "./_helpers";
 import { users } from "./identity";
@@ -81,6 +81,30 @@ export const aiExtractionLog = pgTable(
     // apps/web/src/lib/ai/extract-resume.ts's hardcoded MODEL constant.
     model: text("model").notNull(),
     status: text("status").notNull(),
+    // Real token usage from the Anthropic response — added for cost
+    // tracking/quota tuning (is DEFAULT_TIER_MONTHLY_LIMIT calibrated
+    // right, are we pricing FreeOps's own plans to actually cover AI
+    // spend). Nullable: a call that fails before Claude ever responds
+    // (network/API error) has no usage to report. A call that DID get a
+    // response but couldn't be parsed still has real usage — see
+    // extract-resume.ts's `ExtractionError.usage`, which is captured in
+    // that case too, so this column is only null for genuine no-response
+    // failures.
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    // How many raw `messages.create` calls this row's usage/cost covers —
+    // almost always 1, but extract-resume.ts's tool-artifact-leak retry can
+    // make one logical extraction cost 2 real API calls. Recording this
+    // separately from inputTokens/outputTokens (which are already the SUM
+    // across those calls) makes retry-driven cost inflation visible instead
+    // of silently doubling the average without a way to see why.
+    apiCallCount: integer("api_call_count").notNull().default(1),
+    // Computed at write time from apps/web/src/lib/ai/pricing.ts's
+    // hardcoded Haiku 4.5 rates — NOT recomputed from tokens at query time,
+    // so a historical row stays accurate even if pricing.ts's constants
+    // are later updated for a price change. Null only when inputTokens/
+    // outputTokens are also null (nothing to price).
+    costUsd: numeric("cost_usd", { precision: 10, scale: 6 }),
     // Append-only log — no updated_at/soft-delete, matches audit.ts's
     // deletion_warnings convention for the same reason.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
