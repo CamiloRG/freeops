@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signUp } from "../actions";
+import { signUp, signInWithOAuth } from "../actions";
 import { initialAuthActionState } from "../action-state";
 import { CheckEmailPanel } from "../check-email-panel";
 
@@ -83,9 +83,22 @@ export function SignUpForm() {
           {isPending ? "Creando cuenta…" : "Crear cuenta"}
         </Button>
       </form>
-      <div className="mt-[18px] flex gap-6 font-sans text-[11.5px] text-ink-muted">
-        <span>Google · pronto</span>
-        <span>Microsoft · pronto</span>
+      <div className="mt-[22px] flex items-center gap-3 text-ink-faint">
+        <span className="h-px flex-1 bg-line-soft" aria-hidden="true" />
+        <span className="font-mono text-[10px] tracking-[0.06em] uppercase">o continúa con</span>
+        <span className="h-px flex-1 bg-line-soft" aria-hidden="true" />
+      </div>
+      <div className="mt-3 flex gap-4">
+        <form action={signInWithOAuth.bind(null, "google", "/personal")} className="flex-1">
+          <Button type="submit" variant="secondary" size="sm" className="w-full justify-center">
+            Google
+          </Button>
+        </form>
+        <form action={signInWithOAuth.bind(null, "azure", "/personal")} className="flex-1">
+          <Button type="submit" variant="secondary" size="sm" className="w-full justify-center">
+            Microsoft
+          </Button>
+        </form>
       </div>
     </>
   );

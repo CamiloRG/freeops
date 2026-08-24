@@ -1,17 +1,20 @@
 "use server";
 
 /**
- * Email/password auth Server Actions — app_spec.md § "API Contracts &
- * Integrations" → "1. Auth — Supabase Auth" and § "Security & Compliance"
- * → "Authentication & Authorization". Google/Microsoft OAuth is an
- * explicit, deliberate scope boundary deferred to a later phase (the
- * sign-in/sign-up UI shows those buttons disabled) — only email/password
- * is wired here.
+ * Auth Server Actions — app_spec.md § "API Contracts & Integrations" →
+ * "1. Auth — Supabase Auth" and § "Security & Compliance" →
+ * "Authentication & Authorization".
  *
- * Every input is re-validated here with the same Zod schema the client
- * form uses (`lib/validation/auth.ts`) — the client-side check is only for
- * immediate feedback, this is the actual boundary per the spec's Input
- * Validation Strategy.
+ * Email/password inputs are re-validated here with the same Zod schema the
+ * client form uses (`lib/validation/auth.ts`) — the client-side check is
+ * only for immediate feedback, this is the actual boundary per the spec's
+ * Input Validation Strategy.
+ *
+ * Google/Microsoft OAuth (`signInWithOAuth` below) is *login-only*, per
+ * app_spec.md's explicit "Important distinction" in the Auth integration
+ * write-up — it does not grant Calendar/Gmail scopes. That's a separate,
+ * second OAuth grant run through the future MCP scheduling server (Phase
+ * 8), not this one; do not conflate the two flows.
  */
 import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/lib/validation/auth";
@@ -120,6 +123,44 @@ export async function signUp(
   }
 
   return { status: "check-email", email: parsed.data.email };
+}
+
+// Supabase's own provider identifiers — Microsoft/Outlook is "azure"
+// (Azure AD / Microsoft Entra ID), not "microsoft" or "outlook". See
+// https://supabase.com/docs/guides/auth/social-login/auth-azure
+export type OAuthProvider = "google" | "azure";
+
+/**
+ * Bound with `.bind(null, provider, redirectTo)` from the sign-in/sign-up
+ * forms (`<form action={signInWithOAuth.bind(null, "google", redirectTo)}>`)
+ * — see Next.js's documented pattern for passing extra arguments to a
+ * Server Action from a form. Kicks off the redirect-based OAuth flow;
+ * `exchangeCodeForSession` happens on the way back in
+ * `app/auth/callback/route.ts`.
+ */
+export async function signInWithOAuth(
+  provider: OAuthProvider,
+  redirectTo: string,
+  // A <form action> Server Action always receives the submitted FormData as
+  // its final argument; this action needs none of the form's own fields.
+  formData: FormData // eslint-disable-line @typescript-eslint/no-unused-vars
+) {
+  const supabase = await createClient();
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const next = redirectTo.startsWith("/") ? redirectTo : "/personal";
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+    },
+  });
+
+  if (error || !data.url) {
+    redirect("/sign-in?error=oauth-init-failed");
+  }
+
+  redirect(data.url);
 }
 
 export async function signOut() {

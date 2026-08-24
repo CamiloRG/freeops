@@ -5,13 +5,20 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn } from "../actions";
+import { signIn, signInWithOAuth } from "../actions";
 import { initialAuthActionState } from "../action-state";
 import { CheckEmailPanel } from "../check-email-panel";
+
+const OAUTH_ERROR_COPY: Record<string, string> = {
+  "oauth-denied": "Cancelaste el acceso con el proveedor.",
+  "oauth-failed": "No pudimos completar el acceso. Intenta de nuevo.",
+  "oauth-init-failed": "No pudimos iniciar el acceso. Intenta de nuevo.",
+};
 
 export function SignInForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") ?? "";
+  const oauthError = searchParams.get("error");
   const [state, formAction, isPending] = useActionState(signIn, initialAuthActionState);
 
   if (state.status === "check-email") {
@@ -66,13 +73,31 @@ export function SignInForm() {
             {state.formError}
           </p>
         )}
+        {oauthError && (
+          <p className="mt-4 font-mono text-[11px] text-danger" role="alert">
+            {OAUTH_ERROR_COPY[oauthError] ?? OAUTH_ERROR_COPY["oauth-failed"]}
+          </p>
+        )}
         <Button type="submit" className="mt-[30px] w-full" disabled={isPending}>
           {isPending ? "Entrando…" : "Entrar"}
         </Button>
       </form>
-      <div className="mt-[18px] flex gap-6 font-sans text-[11.5px] text-ink-muted">
-        <span>Google · pronto</span>
-        <span>Microsoft · pronto</span>
+      <div className="mt-[22px] flex items-center gap-3 text-ink-faint">
+        <span className="h-px flex-1 bg-line-soft" aria-hidden="true" />
+        <span className="font-mono text-[10px] tracking-[0.06em] uppercase">o continúa con</span>
+        <span className="h-px flex-1 bg-line-soft" aria-hidden="true" />
+      </div>
+      <div className="mt-3 flex gap-4">
+        <form action={signInWithOAuth.bind(null, "google", redirectTo)} className="flex-1">
+          <Button type="submit" variant="secondary" size="sm" className="w-full justify-center">
+            Google
+          </Button>
+        </form>
+        <form action={signInWithOAuth.bind(null, "azure", redirectTo)} className="flex-1">
+          <Button type="submit" variant="secondary" size="sm" className="w-full justify-center">
+            Microsoft
+          </Button>
+        </form>
       </div>
     </>
   );
