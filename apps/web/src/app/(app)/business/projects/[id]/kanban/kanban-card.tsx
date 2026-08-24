@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { displayColumnName, type KanbanColumn, type KanbanTask } from "./kanban-types";
+import { LABEL_COLOR_TEXT_CLASS } from "./kanban-label-colors";
+import type { KanbanLabelColor } from "@/lib/validation/business";
 
 function formatDueDate(value: string | null) {
   if (!value) return null;
@@ -53,11 +55,13 @@ export function KanbanCard({
   otherColumns,
   onMove,
   onDelete,
+  onOpenDetail,
 }: {
   task: KanbanTask;
   otherColumns: KanbanColumn[];
   onMove: (columnId: string) => void;
   onDelete: () => void;
+  onOpenDetail?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -65,6 +69,8 @@ export function KanbanCard({
   });
 
   const dueDate = formatDueDate(task.dueDate);
+  const labels = task.labels ?? [];
+  const checklist = task.checklist ?? null;
 
   return (
     <Card
@@ -85,13 +91,55 @@ export function KanbanCard({
         >
           <GripVertical className="size-4" />
         </button>
-        <div className="min-w-0 flex-1">
-          <div className="text-body-sm font-medium break-words text-ink">{task.title}</div>
+        {/*
+          Task Detail dialog trigger (kanban feature pack, item 4): the
+          card's body/title area, a DISTINCT hit target from both the
+          drag-handle button above and the "..." actions-menu button
+          below — neither of those two's behavior changes at all. `onClick`
+          only (no drag listeners here), so this never interferes with
+          `@dnd-kit`'s pointer sensor on the handle.
+        */}
+        <button
+          type="button"
+          onClick={onOpenDetail}
+          disabled={!onOpenDetail}
+          className="min-w-0 flex-1 text-left disabled:cursor-default"
+        >
+          {labels.length > 0 && (
+            <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              {labels.map((label) => (
+                <span
+                  key={label.id}
+                  className={cn(
+                    "font-mono text-[10.5px] uppercase",
+                    LABEL_COLOR_TEXT_CLASS[label.color as KanbanLabelColor] ?? "text-ink-soft"
+                  )}
+                >
+                  {label.name}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="text-body-sm font-medium break-words text-ink">
+            {task.taskNumber != null && (
+              <span className="mr-1 font-mono text-[11px] font-normal text-ink-muted">#{task.taskNumber}</span>
+            )}
+            {task.title}
+          </div>
           {task.description && (
             <p className="mt-0.5 line-clamp-2 text-caption text-ink-muted">{task.description}</p>
           )}
-          {dueDate && <div className="mt-1.5 font-mono text-[11px] text-ink-muted">Vence {dueDate}</div>}
-        </div>
+          {(dueDate || checklist) && (
+            <div className="mt-1.5 flex items-center gap-2 font-mono text-[11px] text-ink-muted">
+              {dueDate && <span>Vence {dueDate}</span>}
+              {checklist && (
+                <span className={checklist.done === checklist.total ? "text-success" : "text-ink-muted"}>
+                  {checklist.done}/{checklist.total}
+                </span>
+              )}
+            </div>
+          )}
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

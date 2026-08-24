@@ -29,6 +29,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           position: task.position,
           dueDate: task.dueDate,
           createdAt: task.createdAt,
+          taskNumber: task.taskNumber,
+          labels: task.labels,
+          checklist: task.checklist,
         })),
       })),
     });
