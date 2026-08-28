@@ -3,16 +3,13 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 /**
- * "Ledger Quiet" has NO card component in the bordered/shadowed sense —
- * README rule 3: "field groups, cards, and lists are separated by
- * whitespace, never by rules or boxes." This primitive is now a plain
- * structural wrapper with no border/background/radius/shadow; visual
- * separation between sections is pure spacing, applied by each screen via
- * `className`/gap utilities, not drawn by this component. Every
- * sub-component export is kept (same names, same tree shape) because
- * later-stage screens (Personal/Business, `SummaryEditCard`, project lists,
- * …) still import the whole family and expect it to exist — only the
- * rendering is now near-invisible.
+ * "Aero" card (README "Cards & tiles"): radius 20, `1px solid --line`, bg
+ * `--surface`, padding 20–30 — a real bordered surface again, unlike
+ * Ledger Quiet's whitespace-only invisible wrapper (README rule 4: "depth
+ * by border first, shadow rarely" — a card's border IS its depth cue, no
+ * shadow needed at rest). `size="sm"` tightens padding for denser lists.
+ * Every sub-component export is kept (same names, same tree shape) so
+ * every existing screen that imports the whole family keeps working.
  */
 function Card({
   className,
@@ -24,7 +21,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) [--card-spacing:--spacing(4)] data-[size=sm]:[--card-spacing:--spacing(3)]",
+        "group/card flex flex-col gap-(--card-spacing) rounded-card border border-line bg-surface p-[26px] [--card-spacing:--spacing(4)] data-[size=sm]:p-[18px] data-[size=sm]:[--card-spacing:--spacing(3)]",
         className
       )}
       {...props}
@@ -62,7 +59,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-caption text-ink-soft", className)}
+      className={cn("text-body-sm text-ink-soft", className)}
       {...props}
     />
   )
@@ -97,6 +94,21 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * Nested well inside a card (README "Cards & tiles": "Nested well inside a
+ * card: radius 14, bg --surface-sunken, no border") — for a sub-block that
+ * needs visual separation without another full card border.
+ */
+function CardWell({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-well"
+      className={cn("rounded-tile bg-surface-sunken p-4", className)}
+      {...props}
+    />
+  )
+}
+
 export {
   Card,
   CardHeader,
@@ -105,4 +117,5 @@ export {
   CardAction,
   CardDescription,
   CardContent,
+  CardWell,
 }

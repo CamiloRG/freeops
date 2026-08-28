@@ -3,14 +3,13 @@ import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 /**
- * "Ledger Quiet" inline notice (README "Inline notices"): `--surface-sunken`
- * background, `2px --accent` left border, mono title, caption body — used
- * both for the "verification required" pattern (banking step-up, stage 2)
- * and for error surfacing in place of toasts (README "Save feedback": no
- * toasts, "Errors surface as an inline notice above the action row" —
- * stage 3 migrates the kanban board's `toast.error(...)` calls onto this).
- * Danger variant swaps to `--danger-bg` background + `--danger` border/
- * title. No icons, per the handoff's "Assets" section.
+ * "Aero" inline notice (README "Overlays & feedback" → "Notices (inline)"):
+ * radius 14, semantic tint background, **no border and no icon** — title
+ * 13/600 in the semantic ink, body 13px `--ink-soft`. Used both for the
+ * "verification required" pattern (banking step-up) and for error
+ * surfacing in place of toasts (the kanban board's `InlineNotice` migration
+ * off `sonner`). `variant="danger"` kept as the historical prop name for
+ * every existing call site; maps onto Aero's `--critical` family.
  */
 export function InlineNotice({
   variant = "accent",
@@ -29,25 +28,21 @@ export function InlineNotice({
     <div
       role={variant === "danger" ? "alert" : undefined}
       className={cn(
-        "max-w-measure border-l-2 px-[18px] py-[14px]",
-        variant === "danger"
-          ? "bg-danger-bg border-l-danger"
-          : "bg-surface-sunken border-l-accent",
+        "max-w-measure rounded-tile px-[18px] py-[14px]",
+        variant === "danger" ? "bg-critical-tint" : "bg-accent-tint",
         className
       )}
     >
       <div
         className={cn(
-          "font-mono text-label-mono tracking-[0.06em] uppercase",
-          variant === "danger" ? "text-danger" : "text-accent"
+          "text-[13px] font-semibold",
+          variant === "danger" ? "text-critical-ink" : "text-accent-press"
         )}
       >
         {title}
       </div>
       {description ? (
-        <div className="mt-[5px] text-caption text-ink-soft">
-          {description}
-        </div>
+        <div className="mt-[5px] text-[13px] text-ink-soft">{description}</div>
       ) : null}
       {children}
     </div>
