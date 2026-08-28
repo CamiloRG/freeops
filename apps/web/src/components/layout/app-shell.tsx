@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
+import { AppHeader } from "@/components/layout/app-header";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
-import { NavRail } from "@/components/layout/nav-rail";
 import { AppThemeRoot } from "@/components/theme/app-theme-root";
 
 /**
  * Authenticated app shell wrapping every screen under (app) — Personal,
- * Business, Finance. Not applied to the public marketing site, auth pages,
- * or the public booking page, which each have their own minimal shells.
+ * Business, Finance, Settings. Composes the new icon+tree `AppSidebar`
+ * (replacing the old flat `NavRail`) with the persistent `AppHeader` (which
+ * now owns the breadcrumb — no more per-module `BreadcrumbHeader`).
  *
  * "Aero" README ("Interactions & behavior" → "Dark mode"): "app defaults to
  * dark" — `AppThemeRoot` is the wrapper that owns the `data-theme`
@@ -22,8 +24,11 @@ export function AppShell({
 }) {
   return (
     <AppThemeRoot className="flex min-h-screen bg-bg">
-      <NavRail userEmail={userEmail} />
-      <main className="flex-1 pb-20 md:pb-0">{children}</main>
+      <AppSidebar userEmail={userEmail} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppHeader />
+        <main className="flex-1 pb-20 md:pb-0">{children}</main>
+      </div>
       <MobileTabBar />
     </AppThemeRoot>
   );

@@ -28,11 +28,11 @@ import { InlineNotice } from "@/components/ui/inline-notice";
 import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { SummaryField, SummaryGrid } from "@/components/personal/summary-grid";
+import { PageHeader } from "@/components/layout/page-header";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { useSaveStatus } from "@/hooks/use-save-status";
 import { isDirty } from "@/lib/form-dirty";
 import { taxInfoUpsertSchema } from "@/lib/validation/personal";
-import { usePersonalHeaderStatus } from "../personal-header-context";
 
 type TaxIdType = "CC" | "NIT" | "CE" | "Pasaporte";
 type TaxRegime = "regimen_simple" | "regimen_ordinario" | "no_responsable";
@@ -112,8 +112,6 @@ export function TaxInfoForm({
   const [pendingDelete, setPendingDelete] = useState<{ id: string; warning: string; confirmUrl: string } | null>(
     null
   );
-
-  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
 
   const dirty = isDirty(values, saved ?? EMPTY_VALUES);
 
@@ -201,13 +199,12 @@ export function TaxInfoForm({
 
   return (
     <div className="flex flex-col gap-9">
+      <PageHeader
+        title="Información tributaria"
+        description="Datos del RUT y responsabilidades fiscales aplicadas a tu facturación."
+      />
       <SummaryEditCard
-        title={<span className="text-h2 font-medium text-ink">Información tributaria</span>}
-        description={
-          <span className="text-caption text-ink-muted">
-            Tu identificación tributaria y datos relevantes para la DIAN, usados en los documentos que generas.
-          </span>
-        }
+        title="Identificación"
         editing={editing}
         onToggleEdit={handleToggle}
         cancelLabel={null}
@@ -313,6 +310,7 @@ export function TaxInfoForm({
             <Button type="button" variant="ghost" onClick={handleToggle}>
               Descartar
             </Button>
+            <SaveStatusLine status={saveStatus} className="ml-auto" />
           </div>
         </form>
       </SummaryEditCard>

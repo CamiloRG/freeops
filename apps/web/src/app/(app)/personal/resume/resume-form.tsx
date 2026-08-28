@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Upload, CheckCircle2 } from "lucide-react";
 import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,10 +23,10 @@ import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { CollapsibleEntryRow } from "@/components/personal/collapsible-entry-row";
 import { useSingleOpen } from "@/components/personal/use-single-open";
 import { AiProcessingCard, type AiProcessingStatus } from "@/components/ai/ai-processing-card";
+import { PageHeader } from "@/components/layout/page-header";
 import { useSaveStatus } from "@/hooks/use-save-status";
 import { isDirty } from "@/lib/form-dirty";
 import { resumeUpdateSchema } from "@/lib/validation/personal";
-import { usePersonalHeaderStatus } from "../personal-header-context";
 
 interface ResumeEntry {
   id?: string;
@@ -123,8 +124,6 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
   const [exportState, setExportState] = useState<"idle" | "generating" | "done" | "error">("idle");
   const [pdfUrl, setPdfUrl] = useState(initial.lastGeneratedPdfUrl);
 
-  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
-
   const dirty = isDirty({ headline, summary, skills, entries }, saved);
 
   const { editing: editingBasics, toggle: toggleBasics } = useEditToggle(false);
@@ -137,6 +136,7 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiStatus, setAiStatus] = useState(aiImport);
   const [importStatus, setImportStatus] = useState<AiProcessingStatus>("idle");
+  const [importFileName, setImportFileName] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [byokDialogOpen, setByokDialogOpen] = useState(false);
   const [byokApiKey, setByokApiKey] = useState("");
@@ -148,6 +148,7 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
 
   async function handleImportResume(file: File) {
     setImportError(null);
+    setImportFileName(file.name);
     // Flips the moment the real request starts — AiProcessingCard's stage
     // clock begins ticking here, not on a fixed demo duration.
     setImportStatus("processing");
@@ -333,44 +334,61 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
 
   return (
     <div className="flex flex-col gap-9">
-      <div>
-        <h2 className="text-h2 font-medium text-ink">Hoja de vida</h2>
-        <p className="mt-[5px] text-caption text-ink-muted">Estos datos se usan para generar tu hoja de vida en PDF.</p>
-      </div>
-
-      <Card>
-        <CardContent className="space-y-4">
+      <PageHeader
+        title="Hoja de vida"
+        description="Versión maestra — se exporta como PDF con tu marca personal."
+      />
+      <div className="space-y-4">
           <AiProcessingCard
             status={importStatus}
             stages={IMPORT_STAGES}
+            fileName={importFileName ?? undefined}
             idle={
-              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-body text-ink">Importar desde currículum</div>
-                  <div className="text-caption text-ink-soft">
-                    Sube un PDF, JPG o PNG y completamos los campos de abajo para que los revises.
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 rounded-tile bg-surface-sunken p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-accent text-white">
+                    <Upload className="size-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <div className="text-body-sm font-medium text-ink">Subir tu hoja de vida actual</div>
+                    <div className="text-caption text-ink-soft">
+                      PDF, JPG o PNG · extraemos experiencia, habilidades y formación · podrás editar todo después
+                    </div>
                   </div>
                 </div>
-                <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={quotaExhausted}>
-                  Subir currículum
-                </Button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={quotaExhausted}
+                  className="shrink-0 text-[13px] font-medium text-accent hover:underline disabled:pointer-events-none disabled:text-ink-muted"
+                >
+                  Extracción con IA
+                </button>
               </div>
             }
             done={
-              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-body text-ink">Campos actualizados abajo</div>
-                  <div className="text-caption text-ink-soft">Nada se ha guardado aún — revisa y edita antes de guardar.</div>
+              <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-3 rounded-tile bg-positive-tint p-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-positive-ink" aria-hidden="true" />
+                  <div>
+                    <div className="text-body-sm font-medium text-positive-ink">
+                      {entries.length} experiencia{entries.length === 1 ? "" : "s"}, {skills.length} habilidad
+                      {skills.length === 1 ? "" : "es"} extraídas
+                    </div>
+                    <div className="text-caption text-ink-soft">
+                      {importFileName} · revisa y edita los campos antes de guardar
+                    </div>
+                  </div>
                 </div>
-                <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  Importar otro
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Subir otra
                 </Button>
               </div>
             }
             error={
-              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 rounded-tile bg-critical-tint p-4">
                 <div>
-                  <div className="text-body text-danger">No pudimos importar ese archivo</div>
+                  <div className="text-body-sm font-medium text-critical-ink">No pudimos importar ese archivo</div>
                   <div className="text-caption text-ink-soft">{importError}</div>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
@@ -422,8 +440,7 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
               }
             />
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <SummaryEditCard
         title={<span className="text-h3 text-ink">Datos básicos</span>}
@@ -612,6 +629,7 @@ export function ResumeForm({ initial, aiImport }: { initial: ResumeValues; aiImp
           </a>
         )}
         {exportState === "error" && <span className="font-mono text-[11px] text-danger">La exportación falló — intenta de nuevo.</span>}
+        <SaveStatusLine status={saveStatus} className="ml-auto" />
       </div>
 
       <AlertDialog

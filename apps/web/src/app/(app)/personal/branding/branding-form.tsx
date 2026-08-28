@@ -12,7 +12,7 @@ import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { useSaveStatus } from "@/hooks/use-save-status";
 import { isDirty } from "@/lib/form-dirty";
 import { brandingUpdateSchema } from "@/lib/validation/personal";
-import { usePersonalHeaderStatus } from "../personal-header-context";
+import { PageHeader } from "@/components/layout/page-header";
 
 interface BrandingValues {
   logoUrl: string | null;
@@ -43,8 +43,6 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
   const [logoStatus, setLogoStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [logoError, setLogoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
 
   const dirty = isDirty(
     { primaryColor: values.primaryColor, secondaryColor: values.secondaryColor },
@@ -111,8 +109,12 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
 
   return (
     <div className="flex flex-col gap-9">
+      <PageHeader
+        title="Marca personal"
+        description="Identidad que se aplica a propuestas, cuentas de cobro y correos salientes."
+      />
       <SummaryEditCard
-        title={<span className="text-h2 font-medium text-ink">Logo y colores de marca</span>}
+        title="Logotipo"
         description={
           <span className="text-caption text-ink-muted">Se aplican a las cuentas de cobro y facturas que generas.</span>
         }
@@ -235,6 +237,7 @@ export function BrandingForm({ initial, fullName }: { initial: BrandingValues; f
               <Button type="button" variant="ghost" onClick={handleToggle}>
                 Descartar
               </Button>
+              <SaveStatusLine status={saveStatus} className="ml-auto" />
             </div>
           </form>
         </div>

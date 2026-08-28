@@ -9,11 +9,11 @@ import { InlineNotice } from "@/components/ui/inline-notice";
 import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { SummaryField, SummaryGrid } from "@/components/personal/summary-grid";
+import { PageHeader } from "@/components/layout/page-header";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { useSaveStatus } from "@/hooks/use-save-status";
 import { isDirty } from "@/lib/form-dirty";
 import { profileUpdateSchema } from "@/lib/validation/personal";
-import { usePersonalHeaderStatus } from "../personal-header-context";
 
 interface ProfileFormValues {
   fullName: string;
@@ -39,8 +39,6 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
   const { editing, setEditing, toggle } = useEditToggle(false);
   const saveStatus = useSaveStatus();
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  usePersonalHeaderStatus(<SaveStatusLine status={saveStatus} />);
 
   const dirty = isDirty(values, saved);
 
@@ -87,9 +85,10 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
   }
 
   return (
+    <div className="flex flex-col gap-9">
+    <PageHeader title="Perfil" description="Aparecen en cada documento que generas." />
     <SummaryEditCard
-      title={<span className="text-h2 font-medium text-ink">Perfil y datos personales</span>}
-      description={<span className="text-caption text-ink-muted">Aparecen en cada documento que generas.</span>}
+      title="Datos personales"
       editing={editing}
       onToggleEdit={handleToggle}
       cancelLabel={null}
@@ -180,8 +179,10 @@ export function ProfileForm({ initial }: { initial: ProfileFormValues }) {
           <Button type="button" variant="ghost" onClick={handleToggle}>
             Descartar
           </Button>
+          <SaveStatusLine status={saveStatus} className="ml-auto" />
         </div>
       </form>
     </SummaryEditCard>
+    </div>
   );
 }

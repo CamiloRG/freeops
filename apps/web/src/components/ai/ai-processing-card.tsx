@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type AiProcessingStatus = "idle" | "processing" | "done" | "error";
@@ -8,65 +9,56 @@ export type AiProcessingStatus = "idle" | "processing" | "done" | "error";
 export interface AiProcessingCardProps {
   status: AiProcessingStatus;
   /**
-   * Staged copy cycled through while `status === "processing"`, in order
-   * (e.g. `["Reading your document…", "Extracting skills & experience…",
-   * "Almost done…"]`). Reflects the real rough order of work — never a
-   * fabricated percentage, since there's no real granular progress to
-   * report honestly. The last stage is held once reached, so a
-   * longer-than-expected request never implies something false.
+   * Staged copy shown one at a time while `status === "processing"` (e.g.
+   * `["Leyendo tu documento…", "Extrayendo habilidades…", "Casi listo…"]`).
+   * Each stage becomes one checklist row — done ones get a checkmark,
+   * the current one a filled accent dot, the rest an empty ring. Reflects
+   * the real rough order of work; never a fabricated fine-grained percent.
    */
   stages: string[];
-  /**
-   * How often to advance to the next stage while processing, in ms. This
-   * is a time-based heuristic for genuinely-unknown-duration work, NOT a
-   * countdown to a scripted "done" — the caller alone decides when
-   * `status` becomes `"done"` or `"error"`, driven by the real request's
-   * actual resolution.
-   */
+  /** How often to advance to the next stage while processing, in ms — a
+   * heartbeat for genuinely-unknown-duration work, not a countdown to a
+   * scripted "done"; the caller alone decides when `status` resolves. */
   stageIntervalMs?: number;
-  /** Content shown while idle — title/description/CTA, fully caller-defined, plain text (no icon). */
+  /** File name shown in the processing card's header row, if known. */
+  fileName?: string;
+  /** Content shown while idle — title/description/CTA, caller-defined. */
   idle: ReactNode;
-  /** Content shown once `status === "done"`, plain text (no icon). */
+  /** Content shown once `status === "done"`. */
   done: ReactNode;
-  /** Content shown if `status === "error"`, plain text (no icon). Defaults to a generic message. */
+  /** Content shown if `status === "error"`. Defaults to a generic message. */
   error?: ReactNode;
   className?: string;
 }
 
 const DEFAULT_STAGE_INTERVAL_MS = 1300;
-const PROGRESS_SEGMENTS = 4;
 
 /**
- * Reusable "AI is working" status display — introduced for resume import
- * but deliberately generic (status/stages/idle/done/error props, no
- * resume-specific field names) so any future AI-driven operation in the
- * app can reuse it rather than rebuilding this pattern.
+ * Reusable "AI is working" status display — generic (status/stages/idle/
+ * done/error props, no resume-specific field names) so any AI-driven
+ * operation can reuse it.
  *
- * "Ledger Quiet" restyle: the original pulsing colored file-icon / success
- * checkmark / destructive icon violated the handoff's explicit "no
- * illustrations, icons, or images" rule (README "Assets"). Idle/done/error
- * now render as plain mono caption text with no icon slot content — just
- * whatever the caller passes. The "processing" state no longer pulses a
- * ring icon; it reuses the handoff's own "Progress (completeness)"
- * component spec instead (4 segments, `height:4px`, `gap:3px`, filled
- * `--accent`, empty `--line`) — segments fill as the *real* staged-copy
- * clock below advances, not a fabricated percentage.
+ * "Aero" restyle: a bordered, accent-ringed card with a PDF-icon tile,
+ * file name + live stage text, a big percentage (derived honestly from
+ * `stageIndex / stages.length`, never fabricated finer than the real
+ * stage count implies), and a checklist of the stages below — matching
+ * the new Personal-module mocks' upload/processing pattern. Idle and done
+ * stay fully caller-defined content (this component does not know what
+ * "done" means for a given feature).
  *
- * Unlike the design mockup this was ported from (which drove the demo off
- * a fixed 4.2s timer), this component has NO internal notion of when work
- * finishes — `status` is fully controlled by the caller, who should flip
- * it to `"processing"` the instant the real request starts and to
- * `"done"`/`"error"` only when that request actually resolves. The stage
- * text/segment fill still advance on their own clock (`stageIntervalMs`)
- * purely as a "we're still genuinely working" heartbeat while the real
- * response is pending, capping at the final stage/full segment count
- * rather than looping or stalling — this is the exact same real timer as
- * before, only its visual is now a segmented bar instead of a spinner.
+ * This component has NO internal notion of when work finishes — `status`
+ * is fully controlled by the caller, who flips it to `"processing"` the
+ * instant the real request starts and to `"done"`/`"error"` only when
+ * that request actually resolves. The stage text/checklist/percentage
+ * advance on their own clock (`stageIntervalMs`) purely as a "still
+ * genuinely working" heartbeat, capping at the final stage rather than
+ * looping or stalling past it.
  */
 export function AiProcessingCard({
   status,
   stages,
   stageIntervalMs = DEFAULT_STAGE_INTERVAL_MS,
+  fileName,
   idle,
   done,
   error,
@@ -76,8 +68,7 @@ export function AiProcessingCard({
 
   // Reset the stage clock the instant a fresh "processing" run starts —
   // React's sanctioned "adjust state when a prop changes" pattern (set
-  // state directly during render, not in an effect) rather than an effect
-  // that would fire a render-triggering setState synchronously on mount.
+  // state directly during render, not in an effect).
   const [prevStatus, setPrevStatus] = useState(status);
   if (status !== prevStatus) {
     setPrevStatus(status);
@@ -92,42 +83,58 @@ export function AiProcessingCard({
     return () => clearInterval(timer);
   }, [status, stageIntervalMs, stages.length]);
 
-  const stageText = stages[Math.min(stageIndex, Math.max(stages.length - 1, 0))] ?? "";
+  if (status === "idle") return <>{idle}</>;
+  if (status === "done") return <>{done}</>;
 
-  // Map the real stage clock (however many logical stages the caller
-  // defined) onto the spec's fixed 4-segment display — still driven by the
-  // same real interval/request lifecycle, just visualized more coarsely.
-  const progressFraction = stages.length > 0 ? (stageIndex + 1) / stages.length : 0;
-  const filledSegments = Math.min(PROGRESS_SEGMENTS, Math.max(1, Math.round(progressFraction * PROGRESS_SEGMENTS)));
+  if (status === "error") {
+    return (
+      <>{error ?? <p className="text-caption text-critical-ink">Algo salió mal — inténtalo de nuevo.</p>}</>
+    );
+  }
+
+  const stageText = stages[Math.min(stageIndex, Math.max(stages.length - 1, 0))] ?? "";
+  const percent = stages.length > 0 ? Math.round(((stageIndex + 1) / stages.length) * 100) : 0;
 
   return (
-    <div className={cn("flex items-center gap-4", className)}>
-      {status === "idle" && idle}
-
-      {status === "processing" && (
-        <div className="min-w-0 flex-1">
-          <div key={stageIndex} className="animate-in fade-in slide-in-from-bottom-0.5 text-body text-ink duration-300">
-            {stageText}
-          </div>
-          <div className="mt-2 flex max-w-56 gap-[3px]" role="progressbar" aria-label={stageText}>
-            {Array.from({ length: PROGRESS_SEGMENTS }, (_, i) => (
-              <span
-                key={i}
-                aria-hidden
-                className={cn("h-1 flex-1 transition-colors duration-fast ease-out", i < filledSegments ? "bg-accent" : "bg-line")}
-              />
-            ))}
+    <div className={cn("rounded-card border border-accent bg-surface p-5", className)}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-accent-tint text-accent-press">
+            <FileText className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            {fileName && <div className="truncate text-body-sm font-medium text-ink">{fileName}</div>}
+            <div key={stageIndex} className="animate-in fade-in text-[13px] text-accent-press duration-300">
+              {stageText}
+            </div>
           </div>
         </div>
-      )}
+        <div className="shrink-0 text-h3 text-ink">{percent}%</div>
+      </div>
 
-      {status === "done" && <div className="min-w-0 flex-1 animate-in fade-in duration-300">{done}</div>}
-
-      {status === "error" && (
-        <div className="min-w-0 flex-1">
-          {error ?? <p className="text-caption text-danger">Algo salió mal — inténtalo de nuevo.</p>}
-        </div>
-      )}
+      <div className="mt-4 flex flex-col gap-2 border-t border-line-soft pt-4">
+        {stages.map((stage, i) => {
+          const stageStatus = i < stageIndex ? "done" : i === stageIndex ? "current" : "pending";
+          return (
+            <div key={stage} className="flex items-center gap-2.5 text-[13px]">
+              {stageStatus === "done" ? (
+                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-positive text-white">
+                  <svg viewBox="0 0 12 12" className="size-2.5" fill="none" aria-hidden="true">
+                    <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              ) : stageStatus === "current" ? (
+                <span className="size-4 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+              ) : (
+                <span className="size-4 shrink-0 rounded-full border border-line" aria-hidden="true" />
+              )}
+              <span className={cn(stageStatus === "pending" ? "text-ink-muted" : "font-medium text-ink")}>
+                {stage}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
