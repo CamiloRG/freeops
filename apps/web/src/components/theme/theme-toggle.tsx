@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import { APP_THEME_STORAGE_KEY } from "./app-theme-root";
 
 type ThemeValue = "dark" | "light";
@@ -14,10 +15,17 @@ function readCurrentTheme(): ThemeValue {
 /**
  * Toggles the app shell's `data-theme` between dark (the default) and
  * light, persisting the choice to `localStorage` — pairs with
- * `AppThemeRoot`'s pre-hydration script. Plain mono text, no icon, matching
- * the rail's own register (README "Assets": no icons unless necessary).
+ * `AppThemeRoot`'s pre-hydration script. `iconOnly` renders a plain
+ * sun/moon glyph (the sidebar footer's register in the new nav mocks)
+ * instead of the earlier text label.
  */
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({
+  className,
+  iconOnly = false,
+}: {
+  className?: string;
+  iconOnly?: boolean;
+}) {
   const [theme, setTheme] = useState<ThemeValue>("dark");
 
   useEffect(() => {
@@ -49,8 +57,20 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={toggle}
       className={className}
       aria-pressed={theme === "light"}
+      aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+      title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
     >
-      {theme === "dark" ? "modo claro" : "modo oscuro"}
+      {iconOnly ? (
+        theme === "dark" ? (
+          <Sun className="size-4" aria-hidden="true" />
+        ) : (
+          <Moon className="size-4" aria-hidden="true" />
+        )
+      ) : theme === "dark" ? (
+        "modo claro"
+      ) : (
+        "modo oscuro"
+      )}
     </button>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_ITEMS } from "@/lib/nav-config";
+import { MOBILE_NAV_ITEMS } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,7 +17,7 @@ export function MobileTabBar() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      {NAV_ITEMS.map((item) => {
+      {MOBILE_NAV_ITEMS.map((item) => {
         const isActive = pathname.startsWith(item.href);
         const Icon = item.icon;
         return (

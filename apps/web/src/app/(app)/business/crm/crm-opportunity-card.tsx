@@ -25,12 +25,29 @@ function formatCurrency(value: number | null, currency: string) {
   }
 }
 
-function formatDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("es-CO", { month: "short", day: "numeric" });
+/** Small day-count pill: days until `expectedCloseDate` if set, otherwise
+ * days since `createdAt` — matching the mocked card's small "N d" chip,
+ * derived from real dates rather than a stored field that doesn't exist. */
+function daysBadge(opportunity: CrmOpportunity) {
+  if (opportunity.closedAt) return { label: "cerrado", tone: "positive" as const };
+  const target = opportunity.expectedCloseDate
+    ? new Date(`${opportunity.expectedCloseDate}T00:00:00`)
+    : new Date(opportunity.createdAt);
+  const days = Math.round((target.getTime() - Date.now()) / 86_400_000);
+  if (opportunity.expectedCloseDate) {
+    if (days < 0) return { label: "vencido", tone: "critical" as const };
+    return { label: `${days} d`, tone: days <= 3 ? ("attention" as const) : ("neutral" as const) };
+  }
+  const age = Math.max(0, Math.round((Date.now() - target.getTime()) / 86_400_000));
+  return { label: `${age} d`, tone: "neutral" as const };
 }
+
+const BADGE_TONE: Record<string, string> = {
+  positive: "bg-positive-tint text-positive-ink",
+  critical: "bg-critical-tint text-critical-ink",
+  attention: "bg-attention-tint text-attention-ink",
+  neutral: "bg-surface-sunken text-ink-muted",
+};
 
 /**
  * A CRM opportunity card — same draggable-card + always-visible "Mover a"
@@ -63,13 +80,13 @@ export function CrmOpportunityCard({
   });
 
   const value = formatCurrency(opportunity.estimatedValue, opportunity.currency);
-  const closeDate = formatDate(opportunity.expectedCloseDate);
+  const badge = daysBadge(opportunity);
 
   return (
     <Card
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("gap-0 border border-line bg-paper p-2.5", isDragging && "opacity-40")}
+      className={cn("gap-0 rounded-tile border border-line bg-surface p-3", isDragging && "opacity-40")}
     >
       <div className="flex items-start gap-1.5">
         <button
@@ -77,19 +94,19 @@ export function CrmOpportunityCard({
           {...attributes}
           {...listeners}
           aria-label={`Arrastrar para mover "${opportunity.title}"`}
-          className="mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
+          className="mt-0.5 flex size-5 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-3.5" />
         </button>
         <button type="button" onClick={onOpenDetail} className="min-w-0 flex-1 text-left">
           <div className="text-body-sm font-medium break-words text-ink">{opportunity.title}</div>
-          <p className="mt-0.5 truncate text-caption text-ink-muted">{opportunity.clientName}</p>
-          {(value || closeDate) && (
-            <div className="mt-1.5 flex items-center gap-2 font-mono text-[11px] text-ink-muted">
-              {value && <span className="text-ink">{value}</span>}
-              {closeDate && <span>vence {closeDate}</span>}
-            </div>
-          )}
+          <p className="mt-0.5 truncate text-[12px] text-ink-muted">{opportunity.clientName}</p>
+          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-line-soft pt-2">
+            <span className="font-mono text-data-mono text-ink">{value ?? "—"}</span>
+            <span className={cn("shrink-0 rounded-pill px-[8px] py-[2px] text-[11px] font-medium", BADGE_TONE[badge.tone])}>
+              {badge.label}
+            </span>
+          </div>
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

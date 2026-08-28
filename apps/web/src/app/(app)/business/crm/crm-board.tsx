@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BreadcrumbHeader } from "@/components/layout/breadcrumb-header";
+import { PageHeader } from "@/components/layout/page-header";
 import { CrmStageColumn } from "./crm-stage-column";
 import { CrmOpportunityCard } from "./crm-opportunity-card";
 import { OpportunityDetailDialog } from "./opportunity-detail-dialog";
@@ -33,6 +33,14 @@ import { CloseWonConfirmDialog } from "./close-won-confirm-dialog";
 import type { CrmOpportunity, CrmStage } from "./crm-types";
 
 const MOVE_ERROR = "No se pudo mover la oportunidad — revisa tu conexión e intenta de nuevo.";
+
+function formatCurrency(value: number, currency: string) {
+  try {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+  } catch {
+    return `${currency} ${value.toLocaleString()}`;
+  }
+}
 
 /**
  * The CRM pipeline board — a stage-column drag-and-drop board that mirrors
@@ -396,9 +404,16 @@ export function CrmBoard({ initialStages }: { initialStages: CrmStage[] }) {
     setMoveOpportunitiesTo("");
   }
 
+  const openOpportunities = stages.filter((s) => !s.isClosedWon && !s.isClosedLost).flatMap((s) => s.opportunities);
+  const totalValue = openOpportunities.reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0);
+  const currency = openOpportunities[0]?.currency ?? "COP";
+
   return (
     <div className="px-9 pt-[26px] pb-8">
-      <BreadcrumbHeader breadcrumb="NEGOCIO / PIPELINE CRM" />
+      <PageHeader
+        title="Pipeline"
+        description={`${openOpportunities.length} oportunidad${openOpportunities.length === 1 ? "" : "es"} activa${openOpportunities.length === 1 ? "" : "s"} · ${formatCurrency(totalValue, currency) ?? "$0"} en juego`}
+      />
 
       {boardError && (
         <InlineNotice variant="danger" title="ERROR" description={boardError} className="mt-4 mb-4 max-w-none">
@@ -453,10 +468,11 @@ export function CrmBoard({ initialStages }: { initialStages: CrmStage[] }) {
         >
           <div className="flex items-start gap-3 overflow-x-auto pb-2" role="application" aria-label="Tablero de pipeline CRM">
             <SortableContext items={stages.map((s) => s.id)} strategy={horizontalListSortingStrategy}>
-              {stages.map((stage) => (
+              {stages.map((stage, stageIndex) => (
                 <CrmStageColumn
                   key={stage.id}
                   stage={stage}
+                  position={stageIndex}
                   otherStages={stages.filter((s) => s.id !== stage.id)}
                   onRename={(name) => handleRenameStage(stage.id, name)}
                   onRequestDelete={() => setDeleteStageTarget(stage)}

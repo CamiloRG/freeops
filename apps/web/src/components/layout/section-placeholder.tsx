@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 
 type SectionPlaceholderProps = {
   title: string;
@@ -9,8 +10,13 @@ type SectionPlaceholderProps = {
 };
 
 /**
- * Temporary landing content for a top-level section until its phase is
- * built out. Replaced screen-by-screen starting Phase 4.
+ * Temporary landing content for a section not built yet — Finance
+ * (Phases 7/9/10/12) and, as of the "Aero" nav rebuild, the new
+ * Principal dashboard and every Configuraciones sub-page (Correo,
+ * Calendario, BYOK relocation, live Temas customizer): all real features
+ * shown in the new nav mocks that don't exist in the app yet, deliberately
+ * left as an honest "coming soon" rather than faked — see the design
+ * system migration's own notes on why.
  */
 export function SectionPlaceholder({
   title,
@@ -19,18 +25,15 @@ export function SectionPlaceholder({
   screens,
 }: SectionPlaceholderProps) {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 md:px-8 md:py-16">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold">{title}</h1>
-        <p className="mt-2 text-muted-foreground">{description}</p>
-      </div>
+    <div className="px-9 pt-[26px] pb-8">
+      <PageHeader title={title} description={description} />
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Coming in {phase}</CardTitle>
-          <Badge variant="secondary">Not built yet</Badge>
+          <CardTitle className="text-body-sm">Próximamente — {phase}</CardTitle>
+          <Badge variant="secondary">Aún no construido</Badge>
         </CardHeader>
         <CardContent>
-          <ul className="list-inside list-disc space-y-1.5 text-sm text-muted-foreground">
+          <ul className="list-inside list-disc space-y-1.5 text-body-sm text-ink-soft">
             {screens.map((screen) => (
               <li key={screen}>{screen}</li>
             ))}

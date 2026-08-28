@@ -17,9 +17,32 @@ import { cn } from "@/lib/utils";
 import { CrmOpportunityCard } from "./crm-opportunity-card";
 import type { CrmStage } from "./crm-types";
 
+/** Cycled by stage position — CRM stages have no stored color, this is a
+ * display-only sequence (grey → blue → indigo → amber → green), with
+ * closed-won/closed-lost flags overriding it regardless of position. */
+const STAGE_DOT_CYCLE = ["bg-line", "bg-accent", "bg-accent", "bg-attention", "bg-positive"];
+
+function stageDotColor(stage: CrmStage, position: number) {
+  if (stage.isClosedWon) return "bg-positive";
+  if (stage.isClosedLost) return "bg-critical";
+  return STAGE_DOT_CYCLE[position % STAGE_DOT_CYCLE.length];
+}
+
+function formatStageValue(stage: CrmStage) {
+  const total = stage.opportunities.reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0);
+  const currency = stage.opportunities[0]?.currency ?? "COP";
+  if (total === 0) return null;
+  try {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(total);
+  } catch {
+    return `${currency} ${total.toLocaleString()}`;
+  }
+}
+
 /** Same shape as `kanban-column.tsx` — see that file's doc comments for the drag-handle/rename/actions-menu conventions this mirrors, minus WIP limits (not part of this module's scope). */
 export function CrmStageColumn({
   stage,
+  position,
   otherStages,
   onRename,
   onRequestDelete,
@@ -29,6 +52,7 @@ export function CrmStageColumn({
   onOpenDetail,
 }: {
   stage: CrmStage;
+  position: number;
   otherStages: CrmStage[];
   onRename: (name: string) => void;
   onRequestDelete: () => void;
@@ -71,22 +95,25 @@ export function CrmStageColumn({
     setAdding(false);
   }
 
+  const stageValue = formatStageValue(stage);
+
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("flex w-72 shrink-0 flex-col bg-surface-sunken", isDragging && "opacity-50")}
+      className={cn("group flex w-[280px] shrink-0 flex-col", isDragging && "opacity-50")}
     >
-      <div className="flex items-center gap-1.5 px-3 py-2.5">
+      <div className="flex items-center gap-1.5 px-1 pb-1">
         <button
           type="button"
           {...attributes}
           {...listeners}
           aria-label={`Arrastrar para reordenar la etapa "${stage.name}"`}
-          className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
+          className="flex size-5 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted opacity-0 transition-opacity duration-fast ease-out hover:text-ink group-hover:opacity-100 active:cursor-grabbing"
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-3.5" />
         </button>
+        <span className={cn("size-1.5 shrink-0 rounded-full", stageDotColor(stage, position))} aria-hidden="true" />
         {renaming ? (
           <Input
             autoFocus
@@ -103,13 +130,13 @@ export function CrmStageColumn({
             className="h-7 flex-1"
           />
         ) : (
-          <span className="flex-1 truncate font-mono text-label-mono tracking-[0.06em] text-ink uppercase">
+          <span className="flex-1 truncate text-[14px] font-medium text-ink">
             {stage.name}
-            {stage.isClosedWon && <span className="ml-1.5 text-accent">· ganado</span>}
-            {stage.isClosedLost && <span className="ml-1.5 text-ink-muted">· perdido</span>}
+            {stage.isClosedWon && <span className="ml-1.5 text-[12px] font-normal text-positive-ink">· ganado</span>}
+            {stage.isClosedLost && <span className="ml-1.5 text-[12px] font-normal text-ink-muted">· perdido</span>}
           </span>
         )}
-        <span className="shrink-0 font-mono text-[11px] text-ink-muted">{stage.opportunities.length}</span>
+        <span className="shrink-0 text-[12px] text-ink-muted">{stage.opportunities.length}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -130,8 +157,11 @@ export function CrmStageColumn({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {stageValue && (
+        <div className="px-1 pb-2.5 font-mono text-data-mono text-ink-muted">{stageValue}</div>
+      )}
 
-      <div ref={setDroppableRef} className={cn("min-h-24 flex-1 space-y-2 p-2", isOver && "bg-accent-50")}>
+      <div ref={setDroppableRef} className={cn("min-h-24 flex-1 space-y-2.5 rounded-tile bg-surface-sunken/60 p-1.5", isOver && "bg-accent-tint")}>
         <SortableContext items={opportunityIds} strategy={verticalListSortingStrategy}>
           {stage.opportunities.map((opportunity) => (
             <CrmOpportunityCard

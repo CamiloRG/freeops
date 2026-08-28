@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BreadcrumbHeader } from "@/components/layout/breadcrumb-header";
+import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
 import { projectCreateSchema } from "@/lib/validation/business";
 
@@ -41,19 +41,18 @@ const STATUS_LABEL: Record<ProjectListItem["status"], string> = {
   cancelled: "Cancelado",
 };
 
-/**
- * Project status as a plain mono status marker (README "Status markers":
- * "no pills, no background chips"), not a colored badge/chip — `--accent`
- * is deliberately NOT used here (reserved for automation/focus/active-nav/
- * verification per rule 5, not a generic "active" business status). Own
- * judgment call, no mock covers project-status text this stage.
- */
-const STATUS_COLOR: Record<ProjectListItem["status"], string> = {
-  active: "text-ink",
-  completed: "text-success",
-  archived: "text-ink-muted",
-  cancelled: "text-danger",
+/** "Aero" status pill tint per project status (README "Status pills"). */
+const STATUS_PILL: Record<ProjectListItem["status"], string> = {
+  active: "bg-positive-tint text-positive-ink",
+  completed: "bg-accent-tint text-accent-press",
+  archived: "bg-surface-sunken text-ink-muted",
+  cancelled: "bg-critical-tint text-critical-ink",
 };
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
 
 function formatCurrency(value: number | null, currency: string) {
   if (value == null) return null;
@@ -157,19 +156,15 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
 
   return (
     <div className="px-9 pt-[26px] pb-8">
-      <BreadcrumbHeader breadcrumb="NEGOCIO / PROYECTOS" />
-
-      <div className="mt-5 mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-h1 font-medium text-ink">Proyectos</h1>
-          <p className="mt-1 max-w-measure text-caption text-ink-muted">
-            Proyectos de clientes, contratos y sus tableros kanban.
-          </p>
-        </div>
-        <Button type="button" onClick={() => setDialogOpen(true)}>
-          + Nuevo proyecto
-        </Button>
-      </div>
+      <PageHeader
+        title="Proyectos"
+        description="Abre un proyecto para ver sus documentos, tareas y facturación."
+        action={
+          <Button type="button" onClick={() => setDialogOpen(true)}>
+            + Nuevo proyecto
+          </Button>
+        }
+      />
 
       <div className="mb-6 flex flex-wrap items-center gap-4">
         <Select value={status} onValueChange={setStatus}>
@@ -208,38 +203,48 @@ export function ProjectList({ initialProjects }: { initialProjects: ProjectListI
           )}
         </div>
       ) : (
-        <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <Link key={project.id} href={`/business/projects/${project.id}/overview`} className="block">
-              <Card className="h-full transition-colors duration-fast ease-out hover:bg-surface-sunken">
-                <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
-                  <div className="min-w-0">
-                    <CardTitle className="truncate text-h3 font-medium text-ink">{project.name}</CardTitle>
-                    <CardDescription className="truncate">{project.clientName}</CardDescription>
+              <Card className="h-full transition-colors duration-fast ease-out hover:border-accent/40">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-[11px] font-semibold text-accent-press">
+                      {initials(project.clientName)}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-body-sm font-semibold text-ink">{project.name}</div>
+                      <div className="truncate text-[12px] text-ink-muted">{project.clientName}</div>
+                    </div>
                   </div>
                   <span
                     className={cn(
-                      "shrink-0 font-mono text-[11px] uppercase",
-                      STATUS_COLOR[project.status]
+                      "shrink-0 rounded-pill px-[10px] py-[4px] text-[11px] font-medium",
+                      STATUS_PILL[project.status]
                     )}
                   >
                     {STATUS_LABEL[project.status]}
                   </span>
-                </CardHeader>
-                <CardContent className="space-y-1.5 text-body-sm text-ink-soft">
-                  {project.value != null && (
-                    <div className="font-mono text-data-mono text-ink">
-                      {formatCurrency(project.value, project.currency)}
-                    </div>
-                  )}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-4 border-t border-line-soft pt-3 text-[12px] text-ink-muted">
                   <div>
+                    {project.value != null ? (
+                      <span className="font-mono text-data-mono text-ink">
+                        {formatCurrency(project.value, project.currency)}
+                      </span>
+                    ) : (
+                      "Sin valor registrado"
+                    )}
+                  </div>
+                  <div className="text-right">
                     {formatDate(project.startDate) ?? "Sin fecha de inicio"}
                     {project.expectedEndDate && ` — ${formatDate(project.expectedEndDate)}`}
                   </div>
-                  {project.source === "crm_auto" && (
-                    <div className="font-mono text-[11px] text-accent">auto · desde CRM</div>
-                  )}
-                </CardContent>
+                </div>
+                {project.source === "crm_auto" && (
+                  <div className="mt-2 font-mono text-[11px] text-accent-press">auto · desde CRM</div>
+                )}
               </Card>
             </Link>
           ))}

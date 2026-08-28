@@ -15,11 +15,11 @@ import { InlineNotice } from "@/components/ui/inline-notice";
 import { SaveStatusLine } from "@/components/ui/save-status-line";
 import { SummaryEditCard } from "@/components/personal/summary-edit-card";
 import { SummaryField, SummaryGrid } from "@/components/personal/summary-grid";
+import { PageHeader } from "@/components/layout/page-header";
 import { useEditToggle } from "@/components/personal/use-edit-toggle";
 import { useSaveStatus } from "@/hooks/use-save-status";
 import { bankingUpsertSchema } from "@/lib/validation/personal";
 import type { BankingMasked } from "@/lib/services/banking";
-import { usePersonalHeaderStatus } from "../personal-header-context";
 
 const ACCOUNT_TYPE_LABEL: Record<"savings" | "checking", string> = {
   savings: "Ahorros",
@@ -50,14 +50,6 @@ export function BankingForm({ current }: { current: BankingMasked | null }) {
   const [draft, setDraft] = useState(emptyDraft);
   const saveStatus = useSaveStatus();
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  usePersonalHeaderStatus(
-    saveStatus.status === "saved" ? (
-      <SaveStatusLine status={saveStatus} />
-    ) : (
-      <span className="font-mono text-[11px] text-accent">cifrado en reposo</span>
-    )
-  );
 
   function set<K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -107,8 +99,13 @@ export function BankingForm({ current }: { current: BankingMasked | null }) {
   }
 
   return (
+    <div className="flex flex-col gap-9">
+    <PageHeader
+      title="Información bancaria"
+      description="Cuentas que se adjuntan automáticamente a tus cuentas de cobro."
+    />
     <SummaryEditCard
-      title={<span className="text-h2 font-medium text-ink">Datos bancarios</span>}
+      title="Datos bancarios"
       description={
         <span className="max-w-[460px] text-caption text-ink-muted">
           Se usan para recibir pagos. Guardamos el número cifrado; después de guardar solo verás los últimos 4
@@ -229,8 +226,14 @@ export function BankingForm({ current }: { current: BankingMasked | null }) {
               Cancelar
             </Button>
           )}
+          {saveStatus.status === "saved" ? (
+            <SaveStatusLine status={saveStatus} className="ml-auto" />
+          ) : (
+            <span className="ml-auto font-mono text-[11px] text-accent">cifrado en reposo</span>
+          )}
         </div>
       </form>
     </SummaryEditCard>
+    </div>
   );
 }
