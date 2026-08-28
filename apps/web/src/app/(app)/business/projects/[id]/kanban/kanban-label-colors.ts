@@ -28,6 +28,26 @@ export const LABEL_COLOR_TEXT_CLASS: Record<KanbanLabelColor, string> = {
   danger: "text-danger",
 };
 
+/**
+ * "Aero" label pills (README rule 3 doesn't forbid pills the way Ledger
+ * Quiet did) — a tinted background per color, paired with
+ * `LABEL_COLOR_TEXT_CLASS` for the foreground. Written as full static
+ * class names (not built with a template literal) since Tailwind's
+ * build-time scanner can't see dynamically-constructed class strings.
+ */
+export const LABEL_COLOR_BG_CLASS: Record<KanbanLabelColor, string> = {
+  blue: "bg-label-blue/15",
+  teal: "bg-label-teal/15",
+  plum: "bg-label-plum/15",
+  clay: "bg-label-clay/15",
+  olive: "bg-label-olive/15",
+  slate: "bg-label-slate/15",
+  accent: "bg-accent-tint",
+  success: "bg-positive-tint",
+  warning: "bg-attention-tint",
+  danger: "bg-critical-tint",
+};
+
 export const LABEL_COLOR_DISPLAY_NAME: Record<KanbanLabelColor, string> = {
   blue: "Azul",
   teal: "Turquesa",
