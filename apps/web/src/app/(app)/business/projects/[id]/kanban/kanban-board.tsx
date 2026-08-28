@@ -604,7 +604,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex items-start gap-3 overflow-x-auto pb-2" role="application" aria-label="Tablero kanban">
           <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
-            {columns.map((column) => {
+            {columns.map((column, columnIndex) => {
               const visibleTasks = sortTasksForDisplay(
                 column.tasks.filter((t) => taskMatchesFilter(t, filterText, filterLabelIds)),
                 sortMode
@@ -613,6 +613,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                 <KanbanColumn
                   key={column.id}
                   column={column}
+                  position={columnIndex}
                   visibleTasks={visibleTasks}
                   otherColumns={columns.filter((c) => c.id !== column.id)}
                   onRename={(name) => handleRenameColumn(column.id, name)}

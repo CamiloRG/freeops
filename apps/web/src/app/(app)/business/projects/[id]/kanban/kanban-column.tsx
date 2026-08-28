@@ -17,8 +17,13 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { displayColumnName, type KanbanColumn as KanbanColumnData, type KanbanTask } from "./kanban-types";
 
+/** Cycled by column position — kanban columns have no stored color, same
+ * display-only-sequence approach as the CRM pipeline's stage dots. */
+const COLUMN_DOT_CYCLE = ["bg-line", "bg-accent", "bg-attention", "bg-positive"];
+
 export function KanbanColumn({
   column,
+  position,
   visibleTasks,
   otherColumns,
   onRename,
@@ -30,6 +35,7 @@ export function KanbanColumn({
   onSetWipLimit,
 }: {
   column: KanbanColumnData;
+  position: number;
   /**
    * Kanban feature pack, items 5/6 (sort/filter): the tasks to actually
    * RENDER, already filtered/re-sorted for display by the parent —
@@ -108,20 +114,24 @@ export function KanbanColumn({
       data-column-name={column.name}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex w-72 shrink-0 flex-col bg-surface-sunken",
+        "group flex w-[280px] shrink-0 flex-col",
         isDragging && "opacity-50"
       )}
     >
-      <div className="flex items-center gap-1.5 px-3 py-2.5">
+      <div className="flex items-center gap-1.5 px-1 pb-2">
         <button
           type="button"
           {...attributes}
           {...listeners}
           aria-label={`Arrastrar para reordenar la columna "${column.name}"`}
-          className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
+          className="flex size-5 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted opacity-0 transition-opacity duration-fast ease-out hover:text-ink group-hover:opacity-100 active:cursor-grabbing"
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-3.5" />
         </button>
+        <span
+          className={cn("size-1.5 shrink-0 rounded-full", COLUMN_DOT_CYCLE[position % COLUMN_DOT_CYCLE.length])}
+          aria-hidden="true"
+        />
         {renaming ? (
           <Input
             autoFocus
@@ -138,20 +148,19 @@ export function KanbanColumn({
             className="h-7 flex-1"
           />
         ) : (
-          <span className="flex-1 truncate font-mono text-label-mono tracking-[0.06em] text-ink uppercase">
+          <span className="flex-1 truncate text-[14px] font-medium text-ink">
             {displayColumnName(column.name)}
           </span>
         )}
         {/*
-          WIP-limit count slot (kanban feature pack, item 1): plain mono
-          text, no pill/chip — turns `--danger` at/over the limit so the
-          constraint is visible before a drag/add is even attempted, not
-          only after a rejection.
+          WIP-limit count slot (kanban feature pack, item 1): turns
+          `--critical` at/over the limit so the constraint is visible
+          before a drag/add is even attempted, not only after a rejection.
         */}
         <span
           className={cn(
-            "shrink-0 font-mono text-[11px]",
-            atOrOverLimit ? "text-danger" : "text-ink-muted"
+            "shrink-0 text-[12px]",
+            atOrOverLimit ? "text-critical-ink" : "text-ink-muted"
           )}
         >
           {column.tasks.length}
@@ -210,7 +219,10 @@ export function KanbanColumn({
 
       <div
         ref={setDroppableRef}
-        className={cn("min-h-24 flex-1 space-y-2 p-2", isOver && "bg-accent-50")}
+        className={cn(
+          "min-h-24 flex-1 space-y-2.5 rounded-tile bg-surface-sunken/60 p-1.5",
+          isOver && "bg-accent-tint"
+        )}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasksToRender.map((task) => (

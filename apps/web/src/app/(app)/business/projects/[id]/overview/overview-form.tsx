@@ -25,7 +25,6 @@ import { useSaveStatus } from "@/hooks/use-save-status";
 import { isDirty } from "@/lib/form-dirty";
 import { projectUpdateSchema } from "@/lib/validation/business";
 import type { ProjectListItem } from "../../project-list";
-import { useProjectHeaderStatus } from "../project-header-context";
 
 type ProjectStatus = ProjectListItem["status"];
 
@@ -89,8 +88,6 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<"idle" | "deleting" | "error">("idle");
-
-  useProjectHeaderStatus(<SaveStatusLine status={saveStatus} />);
 
   const dirty = isDirty(draft, saved);
 
@@ -157,7 +154,7 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
   return (
     <div className="flex flex-col gap-9">
       <SummaryEditCard
-        title={<span className="text-h2 font-medium text-ink">Resumen</span>}
+        title="Detalles del proyecto"
         description={
           <span className="text-caption text-ink-muted">
             Datos del cliente, alcance, valor y fechas del proyecto.
@@ -311,6 +308,7 @@ export function OverviewForm({ projectId, initial }: { projectId: string; initia
             <Button type="button" variant="ghost" onClick={handleToggle}>
               Descartar
             </Button>
+            <SaveStatusLine status={saveStatus} className="ml-auto" />
           </div>
         </div>
       </SummaryEditCard>

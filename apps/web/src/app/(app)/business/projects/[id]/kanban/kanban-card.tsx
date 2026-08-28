@@ -15,14 +15,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { displayColumnName, type KanbanColumn, type KanbanTask } from "./kanban-types";
-import { LABEL_COLOR_TEXT_CLASS } from "./kanban-label-colors";
+import { LABEL_COLOR_TEXT_CLASS, LABEL_COLOR_BG_CLASS } from "./kanban-label-colors";
 import type { KanbanLabelColor } from "@/lib/validation/business";
 
 function formatDueDate(value: string | null) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("es-CO", { month: "short", day: "numeric" });
+  if (Number.isNaN(date.getTime())) return { label: value, tone: "neutral" as const };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isToday = date.getTime() === today.getTime();
+  const isPast = date.getTime() < today.getTime();
+  const label = isToday
+    ? "Hoy"
+    : date.toLocaleDateString("es-CO", { month: "short", day: "numeric" });
+  return { label, tone: isPast ? ("critical" as const) : isToday ? ("critical" as const) : ("neutral" as const) };
 }
 
 /**
@@ -77,7 +84,7 @@ export function KanbanCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "gap-0 border border-line bg-paper p-2.5",
+        "gap-0 rounded-tile border border-line bg-surface p-3",
         isDragging && "opacity-40"
       )}
     >
@@ -87,9 +94,9 @@ export function KanbanCard({
           {...attributes}
           {...listeners}
           aria-label={`Arrastrar para reordenar "${task.title}"`}
-          className="mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
+          className="mt-0.5 flex size-5 shrink-0 cursor-grab touch-none items-center justify-center text-ink-muted transition-colors duration-fast ease-out hover:text-ink active:cursor-grabbing"
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-3.5" />
         </button>
         {/*
           Task Detail dialog trigger (kanban feature pack, item 4): the
@@ -106,12 +113,13 @@ export function KanbanCard({
           className="min-w-0 flex-1 text-left disabled:cursor-default"
         >
           {labels.length > 0 && (
-            <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
               {labels.map((label) => (
                 <span
                   key={label.id}
                   className={cn(
-                    "font-mono text-[10.5px] uppercase",
+                    "rounded-pill px-[8px] py-[2px] text-[10.5px] font-medium",
+                    LABEL_COLOR_BG_CLASS[label.color as KanbanLabelColor] ?? "bg-surface-sunken",
                     LABEL_COLOR_TEXT_CLASS[label.color as KanbanLabelColor] ?? "text-ink-soft"
                   )}
                 >
@@ -130,10 +138,14 @@ export function KanbanCard({
             <p className="mt-0.5 line-clamp-2 text-caption text-ink-muted">{task.description}</p>
           )}
           {(dueDate || checklist) && (
-            <div className="mt-1.5 flex items-center gap-2 font-mono text-[11px] text-ink-muted">
-              {dueDate && <span>Vence {dueDate}</span>}
+            <div className="mt-2 flex items-center gap-2 text-[12px]">
+              {dueDate && (
+                <span className={dueDate.tone === "critical" ? "font-medium text-critical-ink" : "text-ink-muted"}>
+                  {dueDate.label}
+                </span>
+              )}
               {checklist && (
-                <span className={checklist.done === checklist.total ? "text-success" : "text-ink-muted"}>
+                <span className={checklist.done === checklist.total ? "text-positive-ink" : "text-ink-muted"}>
                   {checklist.done}/{checklist.total}
                 </span>
               )}
