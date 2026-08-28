@@ -5,62 +5,66 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 /**
- * "Ledger Quiet" buttons (design_handoff_freeops_ledger_quiet/README.md,
- * "Buttons" section): primary is a solid ink fill, secondary/tertiary/
- * destructive are all text-only (underline or plain), never a second
- * filled color. Same `variant`/`size` prop UNIONS as the prior Cloud
- * Neutral button so every existing call site across the app (including
- * stage-2/3 screens this pass doesn't touch) keeps compiling and looks
- * intentional, not broken — only the underlying classes changed.
+ * "Aero" buttons (README "Buttons — all pills" + the full control inventory
+ * in the `.dc.html` reference): every variant is a full pill (`radius:
+ * 999px`), 14/500 type, `padding: 12px 22px` (Ghost: `12px 18px`). Same
+ * `variant`/`size` prop UNIONS as the prior Ledger Quiet button so every
+ * existing call site across the app (including not-yet-rebuilt Personal/
+ * Business/Finance/Admin screens) keeps compiling and looks intentional —
+ * only the underlying classes changed.
  *
- * Variant mapping (shadcn name → Ledger Quiet treatment):
- *   default     → primary   (bg --ink, text --paper)
- *   outline     → secondary (text --ink, border-bottom 1px --ink)
- *   secondary   → secondary (same treatment — no separate "filled but
- *                 lower-emphasis" concept exists in this system; the two
- *                 shadcn variants collapse onto the one underline style)
- *   ghost       → tertiary  (text --ink-soft, no border)
- *   link        → secondary (already inherently a link)
- *   destructive → destructive (text --danger, border-bottom --danger)
+ * Variant mapping (shadcn/Ledger Quiet name → Aero treatment):
+ *   default     → Primary     (bg --accent, text white — README rule 3:
+ *                 "accent carries", this is its main job now)
+ *   outline     → Secondary   (bg --surface, 1px --line border)
+ *   secondary   → Secondary   (same — no separate lower-emphasis-but-filled
+ *                 concept exists in this system either; both shadcn
+ *                 variants collapse onto Aero's one Secondary pill)
+ *   ghost       → Ghost       (transparent, text --accent / --accent-on-dark
+ *                 on a dark ancestor)
+ *   destructive → Destructive (bg --critical, text white)
+ *   link        → plain text-accent link, no pill/padding/border — Aero has
+ *                 no literal "link" button; nearest honest rendering for
+ *                 call sites that want an inline text action, not a pill
  *
- * Icon-only sizes (icon/icon-xs/icon-sm/icon-lg) drop the border-bottom
- * from the underline variants via compoundVariants below — a visible
- * underline reads as a text link, not as a square icon affordance, so
- * icon buttons fall back to color-only hover for every non-primary variant.
+ * Focus ring is a 3px accent ring on every variant (README "Buttons": .28
+ * alpha on filled variants, .15 on Secondary/Ghost's white/transparent
+ * backgrounds) plus the variant's own border color where it has one.
  */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-2 border-b border-transparent bg-clip-padding font-sans text-ui font-medium whitespace-nowrap transition-colors duration-fast ease-out outline-none select-none focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-pill font-sans text-ui font-medium whitespace-nowrap transition-colors duration-fast ease-out outline-none select-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-ink text-paper hover:bg-[#1A1916] active:bg-black disabled:bg-line-soft disabled:text-ink-faint",
+          "bg-accent text-white hover:bg-accent-press active:bg-[#3355C9] focus-visible:ring-accent/28 disabled:bg-surface-sunken disabled:text-ink-muted",
         outline:
-          "bg-transparent text-ink border-b-ink px-0! py-0.5! hover:text-accent hover:border-b-accent disabled:text-ink-faint disabled:border-b-line-soft",
+          "border border-line bg-surface text-ink hover:bg-surface-sunken active:border-[#D6DCE6] active:bg-line focus-visible:border-accent focus-visible:ring-accent/15 disabled:border-line disabled:bg-surface disabled:text-ink-muted",
         secondary:
-          "bg-transparent text-ink border-b-ink px-0! py-0.5! hover:text-accent hover:border-b-accent disabled:text-ink-faint disabled:border-b-line-soft",
+          "border border-line bg-surface text-ink hover:bg-surface-sunken active:border-[#D6DCE6] active:bg-line focus-visible:border-accent focus-visible:ring-accent/15 disabled:border-line disabled:bg-surface disabled:text-ink-muted",
         ghost:
-          "bg-transparent text-ink-soft hover:text-ink disabled:text-ink-faint",
+          "bg-transparent text-accent hover:bg-accent-tint active:bg-[#DCE5FF] focus-visible:ring-accent/15 disabled:text-[#C7CBD4] dark:text-accent-on-dark",
         destructive:
-          "bg-transparent text-danger border-b-danger px-0! py-0.5! hover:text-[#a53c2d] hover:border-b-[#a53c2d] disabled:text-ink-faint disabled:border-b-line-soft",
-        link: "bg-transparent text-ink border-b-ink px-0! py-0.5! hover:text-accent hover:border-b-accent",
+          "bg-critical text-white hover:bg-[#D93A2F] active:bg-[#BE3126] focus-visible:ring-critical/28 disabled:bg-critical-tint disabled:text-[#E0A29C]",
+        link: "rounded-none bg-transparent p-0! text-accent underline-offset-4 hover:underline disabled:text-ink-muted",
       },
       size: {
-        default: "px-6 py-[13px] text-[12.5px] has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5",
-        xs: "px-3 py-[6px] text-[11.5px]",
-        sm: "px-4 py-[9px] text-[12px]",
-        lg: "px-7 py-[15px] text-[13px]",
-        icon: "size-9 p-0!",
-        "icon-xs": "size-7 p-0!",
-        "icon-sm": "size-8 p-0!",
-        "icon-lg": "size-10 p-0!",
+        default:
+          "px-[22px] py-[12px] text-[14px] has-data-[icon=inline-end]:pr-[18px] has-data-[icon=inline-start]:pl-[18px]",
+        xs: "px-3 py-[6px] text-[12px]",
+        sm: "px-4 py-[9px] text-ui-sm",
+        lg: "px-[26px] py-[14px] text-[15px]",
+        icon: "size-11 p-0!",
+        "icon-xs": "size-8 p-0!",
+        "icon-sm": "size-9 p-0!",
+        "icon-lg": "size-12 p-0!",
       },
     },
     compoundVariants: [
       {
-        variant: ["outline", "secondary", "destructive", "link"],
-        size: ["icon", "icon-xs", "icon-sm", "icon-lg"],
-        class: "border-b-0!",
+        variant: "ghost",
+        size: "default",
+        class: "px-[18px]!",
       },
     ],
     defaultVariants: {

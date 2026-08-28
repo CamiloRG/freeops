@@ -1,70 +1,90 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Dark mode is an explicit `[data-theme="dark"]` ATTRIBUTE on a wrapper
+ * element, not a `.dark` class on <html> and not `prefers-color-scheme` —
+ * this is Aero's own architecture (tailwind.theme.js: `darkMode: ['selector',
+ * '[data-theme="dark"]']`), and it matters here specifically because Aero's
+ * marketing page is light-bodied with only its hero + logo band forced dark,
+ * while the authenticated app shell defaults to dark — two different
+ * subtrees of the SAME page tree need independent theme values, which a
+ * single global toggle can't express. See `components/theme/app-theme-root.tsx`
+ * for where the app shell sets this attribute (dark by default, user
+ * preference persisted) and the marketing hero/logo band in
+ * `(marketing)/page.tsx` for where it's hardcoded, never toggleable.
+ */
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 /*
- * FreeOps design tokens — "Ledger Quiet" direction (v3 rebrand).
- * Supersedes "Cloud Neutral" (v2). Source of truth:
- * `app/design/design_handoff_freeops_ledger_quiet/{README.md,tokens.css,
+ * FreeOps design tokens — "Aero" design system (v2.0).
+ * Supersedes "Ledger Quiet" (v1.0). Source of truth:
+ * `app/design/design_handoff_freeops_aero/{README.md,tokens.css,
  * tokens.json,tailwind.theme.js}` (outside this repo) — hexes below are
  * copied verbatim from `tokens.css`, not approximated.
  *
- * Direction in one line: structure instead of decoration. No radii, no
- * shadows, anywhere. Almost no lines. Every label/metadata/number is mono,
- * uppercase. Ink acts (primary buttons/text); violet (`--accent`) is
- * reserved exclusively for STATE (focus, active nav/tab, automation
- * markers, required-verification notices) — never a button fill, never
- * decoration.
+ * Direction in one line: cool and rounded, with presence — modern and
+ * minimal, but never empty. Where Ledger Quiet was flat/mono/ink-primary,
+ * Aero is round (4 radii, everything actionable is a pill), cool blue-grey
+ * (never warm, never pure white for the page), dark-capable (deep navy, not
+ * neutral grey), and lets one accent blue carry real UI weight (primary
+ * buttons, active nav, charts) rather than reserving it for state only.
  *
- * Legacy shadcn semantic slots (--background/--foreground/--card/--primary/
- * --secondary/--muted/--accent/--border/--input/--ring/--success/--warning/
- * --destructive/--sidebar-*) are kept and re-pointed onto the new palette
- * rather than removed, so every screen this stage does NOT touch (Personal/
- * Business modules — stages 2/3) keeps rendering without errors. Notably
- * `--primary` and `--accent` both resolve to the same violet `--accent`
- * token they already pointed at under Cloud Neutral (Cloud Neutral's
- * "primary" WAS this exact hex) — so untouched pages see zero color
- * regression even though they don't yet get the flat/mono Ledger Quiet
- * treatment. New literal Ledger Quiet tokens (paper/surface-sunken/
- * surface-raised/ink family/line family/accent ramp/success/warning/danger)
- * are added alongside for every component this stage restyles in place.
+ * Legacy Ledger Quiet literal token names (--paper, --surface-raised,
+ * --ink-faint, the --accent-50..900 ramp, --danger/--success/--warning +
+ * their `-bg` pairs) are kept as ALIASES onto the closest Aero-equivalent
+ * token below, same reasoning as Ledger Quiet's own migration comment: any
+ * screen this pass does not touch (Personal/Business/Finance/Admin content —
+ * the user is supplying real per-module Aero mocks for these separately)
+ * keeps compiling and rendering in Aero's palette/roundness rather than
+ * erroring or reverting to unstyled — it just won't have full Aero-spec
+ * component shapes until it's rebuilt against the mock for that screen.
+ * `--ink`/`--ink-soft`/`--ink-muted`/`--line`/`--line-soft`/`--surface-sunken`/
+ * `--accent` are literally the same token NAMES in both systems, so those
+ * need no alias at all — every existing usage picks up Aero's values for free.
  */
 
 :root {
-  /* ---- Ledger Quiet raw tokens (verbatim from tokens.css) ---- */
-  --paper: #fafaf8; /* app + page background */
-  --surface-sunken: #f4f2ec; /* nav rail, inline notices, hover rows */
-  --surface-raised: #ffffff; /* only where a true white panel is needed */
-  --ink: #2b2a26; /* primary text AND primary button background */
-  --ink-soft: #6b6a62; /* body copy, secondary text */
-  --ink-muted: #9c9a92; /* mono labels, metadata, captions */
-  --ink-faint: #c7c4b8; /* placeholders, disabled text */
-  --line: #e4e2da; /* the ONLY structural hairline */
-  --line-soft: #efede5; /* skeletons, disabled fills */
+  /* ---- Aero light tokens (verbatim from tokens.css) ---- */
+  --bg: #f7f9fc; /* page background — never pure white */
+  --surface: #ffffff; /* cards, panels, headers, dialogs, menus */
+  --surface-sunken: #eef2f7; /* tinted bands, inert fills, hover rows, app rail */
+  --line: #e3e8ef; /* card borders, hairlines */
+  --line-soft: #eef2f7; /* internal dividers, skeletons */
+  --ink: #111827; /* headings, primary text, ink button */
+  --ink-soft: #4b5563; /* body copy */
+  --ink-muted: #8a94a6; /* mono labels, metadata, inactive */
 
-  --accent-50: #f1eefc;
-  --accent-100: #e4dffa;
-  --accent-300: #b3a4f0;
-  --accent: #6c5ce7; /* state only — never decoration */
-  --accent-700: #4a3bc0;
-  --accent-900: #2e2570;
+  --accent: #4f7cff;
+  --accent-press: #3a63e0;
+  --accent-tint: #e8eeff;
+  --accent-on-dark: #7fa1ff; /* accent TEXT on a dark surface, theme-invariant */
 
-  --success: #2f6e5e;
-  --success-bg: #dcefe9;
-  --warning: #8a6d1f;
-  --warning-bg: #f7efd8;
-  --danger: #c24b3a;
-  --danger-bg: #f8e7e3;
+  --positive: #12b981;
+  --positive-tint: #e6f7f0;
+  --positive-ink: #0e8f63;
+  --attention: #f59e0b;
+  --attention-tint: #fef3e0;
+  --attention-ink: #b26b04;
+  --critical: #f04438;
+  --critical-tint: #fdecea;
+  --critical-ink: #c1362b;
 
-  /* ---- Kanban feature pack: label preset palette (6 new hues) ----
-     Plain-mono-text label colors, never a background chip — see
-     `kanban-label-colors.ts`'s doc comment. Deliberately distinct hues
-     from the 4 reserved semantic colors above (accent/success/warning/
-     danger are ALSO offered as label colors, but via those existing
-     tokens directly — a label should never be visually mistaken for a
-     real system status, hence 6 genuinely new hues here rather than
-     tints of the existing 4). */
+  /* ---- Radius ---- */
+  --r-input: 8px;
+  --r-tile: 14px;
+  --r-card: 20px;
+  --r-shell: 24px;
+  --r-pill: 999px;
+
+  /* ---- Elevation (theme-invariant literal shadows) ---- */
+  --e-flat: none;
+  --e-raised: 0 1px 2px rgba(17, 24, 39, 0.05), 0 8px 24px -12px rgba(17, 24, 39, 0.16);
+  --e-floating: 0 2px 4px rgba(17, 24, 39, 0.05), 0 24px 48px -20px rgba(17, 24, 39, 0.24);
+  --e-dark-floating: 0 40px 80px -30px rgba(0, 0, 0, 0.65);
+
+  /* ---- Kanban feature pack: label preset palette — unrelated decorative
+     palette, deliberately untouched by the Ledger Quiet→Aero swap. ---- */
   --label-blue: #3d6693;
   --label-teal: #2f7d8f;
   --label-plum: #7a4a6f;
@@ -72,165 +92,95 @@
   --label-olive: #6b7a3a;
   --label-slate: #55606b;
 
-  /* ---- Legacy shadcn semantic slots, re-pointed onto the tokens above ---- */
-  --background: var(--paper);
+  /* ---- Legacy Ledger Quiet literal names, aliased onto Aero tokens ---- */
+  --paper: var(--bg);
+  --surface-raised: var(--surface);
+  --ink-faint: color-mix(in oklab, var(--ink-muted) 55%, var(--bg));
+  --accent-50: var(--accent-tint);
+  --accent-100: color-mix(in oklab, var(--accent) 18%, var(--surface));
+  --accent-300: var(--accent-on-dark);
+  --accent-700: var(--accent-press);
+  --accent-900: color-mix(in oklab, var(--accent) 65%, var(--ink));
+  --danger: var(--critical);
+  --danger-bg: var(--critical-tint);
+  --success: var(--positive);
+  --success-bg: var(--positive-tint);
+  --warning: var(--attention);
+  --warning-bg: var(--attention-tint);
+
+  /* ---- Legacy shadcn semantic slots, re-pointed onto Aero ---- */
+  --background: var(--bg);
   --foreground: var(--ink);
 
-  --card: var(--surface-raised);
+  --card: var(--surface);
   --card-foreground: var(--ink);
-  --popover: var(--surface-raised);
+  --popover: var(--surface);
   --popover-foreground: var(--ink);
 
   --primary: var(--accent);
-  --primary-foreground: var(--paper);
+  --primary-foreground: #ffffff;
 
-  --secondary: var(--line-soft);
-  --secondary-foreground: var(--ink-soft);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
 
   --muted: var(--surface-sunken);
   --muted-foreground: var(--ink-soft);
 
-  /* Shadcn's generic "accent" slot (hover/focus surface on menu items etc.)
-     and Ledger Quiet's "accent" (state-only violet) are the SAME css custom
-     property in this file by design — see the file-header note above. The
-     two remaining consumers of the old subtle-tint meaning (select.tsx,
-     dropdown-menu.tsx) were rewritten this stage to use `--surface-sunken`
-     for hover/highlight instead (matching the handoff's own "hover:
-     background: --surface-sunken" rule for rows/nav), so nothing still
-     expects `--accent` to mean "light tint." */
   --accent-foreground: var(--ink);
 
   --border: var(--line);
   --input: var(--line);
   --ring: var(--accent);
 
-  --success-foreground: var(--surface-raised);
-  --warning-foreground: var(--surface-raised);
-  --destructive: var(--danger);
-  --destructive-foreground: var(--surface-raised);
+  --success-foreground: var(--surface);
+  --warning-foreground: var(--surface);
+  --destructive: var(--critical);
+  --destructive-foreground: #ffffff;
 
   --chart-1: var(--accent);
   --chart-2: var(--ink-soft);
-  --chart-3: var(--success);
-  --chart-4: var(--warning);
-  --chart-5: var(--danger);
+  --chart-3: var(--positive);
+  --chart-4: var(--attention);
+  --chart-5: var(--critical);
 
-  /* Nav rail bg is literally --surface-sunken per the handoff — matches
-     directly, no re-derivation needed. */
   --sidebar: var(--surface-sunken);
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: var(--paper);
-  --sidebar-accent: var(--surface-raised);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--surface);
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: var(--line);
   --sidebar-ring: var(--accent);
 
-  /* ---- Non-negotiables: radius 0 and shadow none, EVERYWHERE ----
-     Kept as a bare token too (some component classes reference var(--radius)
-     directly) but the real enforcement happens per-scale-step in the
-     `@theme inline` block below — see its comment for why the base token
-     alone is not sufficient. */
-  --radius: 0px;
+  --radius: var(--r-input);
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    /* Dark variant has no source-of-truth mock (the handoff is light-only,
-       like every design pass in this project so far) — derived here using
-       the same color-mix()-based structural approach Cloud Neutral used,
-       re-anchored to Ledger Quiet's hexes. Ink and paper conceptually swap
-       roles (ink becomes the light, high-contrast "acts" color against a
-       dark paper) while the accent ramp stays fixed brand hue, using the
-       lighter --accent-300 step for on-dark legibility exactly like Cloud
-       Neutral's dark --primary did. */
-    --paper: #211f1b;
-    --surface-sunken: color-mix(in oklab, white 6%, var(--paper));
-    --surface-raised: color-mix(in oklab, white 10%, var(--paper));
-    --ink: #f5f3ee;
-    --ink-soft: #b9b7ae;
-    --ink-muted: #8b897f;
-    --ink-faint: #55534a;
-    --line: color-mix(in oklab, white 14%, var(--paper));
-    --line-soft: color-mix(in oklab, white 8%, var(--paper));
+/*
+ * Dark theme — applied via the `[data-theme="dark"]` ATTRIBUTE (see the
+ * `@custom-variant` comment above), not `.dark` and not a media query.
+ * Values verbatim from tokens.css's `[data-theme="dark"]` block. Works on
+ * ANY element carrying the attribute, not only <html>, since custom
+ * properties resolve per-subtree at used-value time.
+ */
+[data-theme="dark"] {
+  --bg: #0b1220; /* deep navy — never neutral grey */
+  --surface: #131c2b;
+  --surface-sunken: #0f1726;
+  --line: #22304a;
+  --line-soft: #1a2536;
+  --ink: #f4f7fb;
+  --ink-soft: #a9b4c6;
+  --ink-muted: #6e7c93;
 
-    --accent: #8c7ef0;
-    --accent-50: color-mix(in oklab, var(--accent) 10%, var(--paper));
-    --accent-100: color-mix(in oklab, var(--accent) 18%, var(--paper));
-    --accent-300: #b3a4f0;
-    --accent-700: #a396ec;
-    --accent-900: #d8d1f8;
+  --accent-tint: #16264a;
 
-    --success: #5fb37f;
-    --success-bg: color-mix(in oklab, var(--success) 18%, var(--paper));
-    --warning: #dba24a;
-    --warning-bg: color-mix(in oklab, var(--warning) 18%, var(--paper));
-    --danger: #e07267;
-    --danger-bg: color-mix(in oklab, var(--danger) 18%, var(--paper));
-
-    --label-blue: #6f9bc9;
-    --label-teal: #5fb0c0;
-    --label-plum: #b087a8;
-    --label-clay: #d08a5c;
-    --label-olive: #9fb06a;
-    --label-slate: #8b96a1;
-
-    --background: var(--paper);
-    --foreground: var(--ink);
-    --card: var(--surface-raised);
-    --card-foreground: var(--ink);
-    --popover: var(--surface-raised);
-    --popover-foreground: var(--ink);
-    --primary: var(--accent);
-    --primary-foreground: var(--paper);
-    --secondary: var(--line-soft);
-    --secondary-foreground: var(--ink-soft);
-    --muted: var(--surface-sunken);
-    --muted-foreground: var(--ink-soft);
-    --accent-foreground: var(--ink);
-    --border: var(--line);
-    --input: var(--line);
-    --ring: var(--accent);
-    --destructive: var(--danger);
-    --destructive-foreground: var(--paper);
-    --success-foreground: var(--paper);
-    --warning-foreground: var(--paper);
-    --sidebar: var(--surface-sunken);
-    --sidebar-foreground: var(--ink);
-    --sidebar-primary: var(--accent);
-    --sidebar-primary-foreground: var(--paper);
-    --sidebar-accent: var(--surface-raised);
-    --sidebar-accent-foreground: var(--ink);
-    --sidebar-border: var(--line);
-    --sidebar-ring: var(--accent);
-  }
-}
-
-/* Explicit .dark class (toggle) wins over system preference either direction. */
-.dark {
-  --paper: #211f1b;
-  --surface-sunken: color-mix(in oklab, white 6%, var(--paper));
-  --surface-raised: color-mix(in oklab, white 10%, var(--paper));
-  --ink: #f5f3ee;
-  --ink-soft: #b9b7ae;
-  --ink-muted: #8b897f;
-  --ink-faint: #55534a;
-  --line: color-mix(in oklab, white 14%, var(--paper));
-  --line-soft: color-mix(in oklab, white 8%, var(--paper));
-
-  --accent: #8c7ef0;
-  --accent-50: color-mix(in oklab, var(--accent) 10%, var(--paper));
-  --accent-100: color-mix(in oklab, var(--accent) 18%, var(--paper));
-  --accent-300: #b3a4f0;
-  --accent-700: #a396ec;
-  --accent-900: #d8d1f8;
-
-  --success: #5fb37f;
-  --success-bg: color-mix(in oklab, var(--success) 18%, var(--paper));
-  --warning: #dba24a;
-  --warning-bg: color-mix(in oklab, var(--warning) 18%, var(--paper));
-  --danger: #e07267;
-  --danger-bg: color-mix(in oklab, var(--danger) 18%, var(--paper));
+  --positive-tint: #0f2b22;
+  --positive-ink: #4fd3a4;
+  --attention-tint: #33230a;
+  --attention-ink: #f0b455;
+  --critical-tint: #3a1714;
+  --critical-ink: #ff8b80;
 
   --label-blue: #6f9bc9;
   --label-teal: #5fb0c0;
@@ -239,34 +189,7 @@
   --label-olive: #9fb06a;
   --label-slate: #8b96a1;
 
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: var(--surface-raised);
-  --card-foreground: var(--ink);
-  --popover: var(--surface-raised);
-  --popover-foreground: var(--ink);
-  --primary: var(--accent);
-  --primary-foreground: var(--paper);
-  --secondary: var(--line-soft);
-  --secondary-foreground: var(--ink-soft);
-  --muted: var(--surface-sunken);
-  --muted-foreground: var(--ink-soft);
-  --accent-foreground: var(--ink);
-  --border: var(--line);
-  --input: var(--line);
-  --ring: var(--accent);
-  --destructive: var(--danger);
-  --destructive-foreground: var(--paper);
-  --success-foreground: var(--paper);
-  --warning-foreground: var(--paper);
-  --sidebar: var(--surface-sunken);
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: var(--paper);
-  --sidebar-accent: var(--surface-raised);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--line);
-  --sidebar-ring: var(--accent);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -307,16 +230,33 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* ---- Ledger Quiet literal color utilities (bg-paper, text-ink-soft, …) ---- */
-  --color-paper: var(--paper);
+  /* ---- Aero literal color utilities (bg-bg, bg-surface, text-ink-soft, …) ---- */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
   --color-surface-sunken: var(--surface-sunken);
-  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-muted: var(--ink-muted);
+  --color-accent-press: var(--accent-press);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-on-dark: var(--accent-on-dark);
+  --color-positive: var(--positive);
+  --color-positive-tint: var(--positive-tint);
+  --color-positive-ink: var(--positive-ink);
+  --color-attention: var(--attention);
+  --color-attention-tint: var(--attention-tint);
+  --color-attention-ink: var(--attention-ink);
+  --color-critical: var(--critical);
+  --color-critical-tint: var(--critical-tint);
+  --color-critical-ink: var(--critical-ink);
+
+  /* ---- Legacy Ledger Quiet literal utilities, kept as aliases (see the
+     file-header comment) so every not-yet-rebuilt screen keeps compiling. ---- */
+  --color-paper: var(--paper);
+  --color-surface-raised: var(--surface-raised);
   --color-ink-faint: var(--ink-faint);
-  --color-line: var(--line);
-  --color-line-soft: var(--line-soft);
   --color-accent-50: var(--accent-50);
   --color-accent-100: var(--accent-100);
   --color-accent-300: var(--accent-300);
@@ -335,129 +275,119 @@
   --color-label-olive: var(--label-olive);
   --color-label-slate: var(--label-slate);
 
-  --font-sans: var(--font-public-sans);
-  --font-brand: var(--font-space-grotesk);
-  --font-mono: var(--font-ibm-plex-mono);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 
-  /* ---- Motion: hover/color 120ms, tab/panel change 180ms (README "Radius,
-     shadow, motion" + "Movimiento" in the .dc.html reference) ---- */
-  --transition-duration-fast: 120ms;
+  /*
+   * ---- Motion: 180ms ease for every state change (hover/press/focus/tab),
+   * 420ms cubic-bezier(.2,.7,.2,1) + 16px rise for section-entrance reveals
+   * (README rule 6 + "Interactions & behavior" → "Scroll entrance"). Kept
+   * the OLD `duration-fast`/`duration-base` utility names so every existing
+   * `transition-colors duration-fast` call site across the app keeps
+   * compiling — both now resolve to Aero's single 180ms state duration,
+   * since Aero (unlike Ledger Quiet) doesn't distinguish a faster hover
+   * timing from a slower panel-change one.
+   */
+  --transition-duration-fast: 180ms;
   --transition-duration-base: 180ms;
-  --ease-ledger: cubic-bezier(0.16, 0.84, 0.44, 1);
+  --transition-duration-enter: 420ms;
+  --ease-ledger: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-enter: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /* ---- Max text measure (README layout constant `max-measure: 520px`) ----
-     Named rather than left as a repeated arbitrary value since it's used
-     across the marketing hero, auth panels, and every app content area.
-     Everything else layout-constant-shaped (rail width, content padding,
-     hero grid gap, field-grid gaps, page padding) is applied per-component
-     as arbitrary-value utilities instead of new global spacing tokens —
-     Tailwind v4's bare numeric spacing scale (`p-6`, `gap-4`, …) is a
-     single `--spacing` multiplier used pervasively by every untouched
-     screen in this codebase, and Ledger Quiet's scale (4·8·12·16·20·26·32·
-     44·56·64) doesn't line up with that multiplier at several steps (26,
-     44) — redefining the base would silently reflow every existing
-     `p-*`/`gap-*` class across the whole app, which is a much bigger blast
-     radius than this stage is meant to touch. */
+  /* ---- Max text measure (README "max measure: 68 characters (~460–520px)") ---- */
   --container-measure: 520px;
 
-  /* ---- Ledger Quiet type scale (fontSize utilities: text-display-xl, …) ---- */
-  --text-display-xl: 46px;
-  --text-display-xl--line-height: 1.05;
-  --text-display-xl--letter-spacing: -0.025em;
-  --text-display-xl--font-weight: 500;
-  --text-display: 32px;
-  --text-display--line-height: 1.1;
-  --text-display--letter-spacing: -0.02em;
-  --text-display--font-weight: 500;
-  --text-h1: 24px;
-  --text-h1--line-height: 1.2;
-  --text-h1--letter-spacing: -0.01em;
-  --text-h1--font-weight: 500;
-  --text-h2: 20px;
-  --text-h2--line-height: 1.3;
-  --text-h2--font-weight: 500;
-  --text-h3: 16px;
-  --text-h3--line-height: 1.4;
-  --text-h3--font-weight: 500;
-  --text-body: 14px;
-  --text-body--line-height: 1.7;
-  --text-body-sm: 13.5px;
-  --text-body-sm--line-height: 1.6;
-  --text-caption: 12.5px;
-  --text-caption--line-height: 1.55;
-  --text-ui: 12.5px;
+  /* ---- Aero type scale (fontSize utilities: text-display-xl, …) ---- */
+  --text-display-xl: 60px;
+  --text-display-xl--line-height: 1.03;
+  --text-display-xl--letter-spacing: -0.038em;
+  --text-display-xl--font-weight: 600;
+  --text-display: 44px;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 600;
+  --text-h1: 36px;
+  --text-h1--line-height: 1.12;
+  --text-h1--letter-spacing: -0.028em;
+  --text-h1--font-weight: 600;
+  --text-h2: 26px;
+  --text-h2--line-height: 1.2;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h2--font-weight: 600;
+  --text-h3: 19px;
+  --text-h3--line-height: 1.35;
+  --text-h3--letter-spacing: -0.015em;
+  --text-h3--font-weight: 600;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.6;
+  --text-body: 16px;
+  --text-body--line-height: 1.6;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.55;
+  --text-ui: 14px;
   --text-ui--line-height: 1.2;
   --text-ui--font-weight: 500;
-  --text-label-mono: 10.5px;
-  --text-label-mono--letter-spacing: 0.06em;
+  --text-ui-sm: 13px;
+  --text-ui-sm--line-height: 1.2;
+  --text-ui-sm--font-weight: 500;
+  --text-caption: 12px;
+  --text-caption--line-height: 1.5;
+  --text-label-mono: 11px;
+  --text-label-mono--letter-spacing: 0.14em;
   --text-label-mono--font-weight: 500;
-  --text-data-mono: 14px;
+  --text-data-mono: 11px;
   --text-data-mono--line-height: 1.4;
 
   /*
-   * ---- Radius: forced to 0 at every named scale step, not just the base
-   * token. This is deliberate, not redundant: Tailwind v4's default theme
-   * (node_modules/tailwindcss/theme.css) defines --radius-xs/sm/md/lg/xl/
-   * 2xl/3xl/4xl as independent literal lengths (0.125rem…2rem), and the
-   * PRIOR version of this file only overrode sm/md/lg/xl by deriving them
-   * from a single --radius base via calc() (e.g. `--radius-xl: calc(var(
-   * --radius) + 4px)`). With --radius: 0px that calc chain is NOT
-   * uniformly 0: calc(0 - 4px)/calc(0 - 2px) (sm/md) produce a negative
-   * length, which IS invalid for border-radius and so falls back to the
-   * property's 0 initial value by accident (invalid-at-computed-value-time) —
-   * but calc(0 + 4px) (xl) is a perfectly VALID positive 4px radius that
-   * would have rendered as a real rounded corner. --radius-2xl/3xl/4xl
-   * were never even referenced by the old calc chain, so `rounded-4xl`
-   * (used by Badge's old pill shape) silently fell through to Tailwind's
-   * own 2rem default the whole time. Every step below is now a literal
-   * 0px, independently, so no calc arithmetic and no un-overridden
-   * upstream default can reintroduce a corner. Verified against a real
-   * rendered element's computed `border-radius` (see this stage's
-   * verification notes), not just by reading this file.
+   * ---- Radius: the 4 named Aero steps (rounded-input/tile/card/shell/pill)
+   * plus the generic Tailwind scale graduated across the same range, so any
+   * not-yet-rebuilt screen using a bare `rounded-md`/`rounded-lg`/… (rare —
+   * only `documents-panel.tsx` outside `components/ui/` as of this pass)
+   * reads as "rounded, Aero-flavored" instead of Ledger Quiet's old forced
+   * 0px, without needing its own rebuild first.
    */
-  --radius-xs: 0px;
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
-  --radius-4xl: 0px;
+  --radius-input: var(--r-input);
+  --radius-tile: var(--r-tile);
+  --radius-card: var(--r-card);
+  --radius-shell: var(--r-shell);
+  --radius-pill: var(--r-pill);
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 999px;
 
   /*
-   * ---- Shadow: every named scale step neutralized the same way (token-
-   * level fix, not a per-usage chase). `shadow-*` utilities anywhere in the
-   * codebase — including files this stage never opens, e.g. tabs.tsx,
-   * sheet.tsx, the kanban board, the branding form — now resolve to `none`.
+   * ---- Shadow: Aero uses real elevation, sparingly (README rule 4: "depth
+   * by border first, shadow rarely" — only genuinely floating things: the
+   * hero product frame, menus, modals). Named `raised`/`floating`/
+   * `dark-floating` utilities plus the generic scale mapped onto them so
+   * legacy `shadow-lg`/`shadow-xl`/… call sites get real elevation again
+   * instead of Ledger Quiet's forced `none`.
    */
+  --shadow-raised: var(--e-raised);
+  --shadow-floating: var(--e-floating);
+  --shadow-dark-floating: var(--e-dark-floating);
+
   --shadow-2xs: none;
   --shadow-xs: none;
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --shadow-xl: none;
-  --shadow-2xl: none;
-  --shadow: none;
+  --shadow-sm: var(--e-raised);
+  --shadow: var(--e-raised);
+  --shadow-md: var(--e-raised);
+  --shadow-lg: var(--e-floating);
+  --shadow-xl: var(--e-floating);
+  --shadow-2xl: var(--e-floating);
   --shadow-inner: none;
-  --inset-shadow-2xs: none;
-  --inset-shadow-xs: none;
-  --inset-shadow-sm: none;
-  --drop-shadow-xs: none;
-  --drop-shadow-sm: none;
-  --drop-shadow-md: none;
-  --drop-shadow-lg: none;
-  --drop-shadow-xl: none;
-  --drop-shadow-2xl: none;
-  --drop-shadow: none;
 }
 
 /*
- * AiProcessingCard's icon ring pulse + progress-bar sweep — ported from
- * the approved Personal-module redesign mockup (Processing.dc.html).
- * Referenced via Tailwind arbitrary-value `animate-[...]` utilities in
- * `components/ai/ai-processing-card.tsx`. Untouched this stage (Personal
- * module is stage 2) — kept working as-is via the same `--primary`/`--muted`
- * tokens, which still resolve (to Ledger Quiet's accent/surface-sunken now).
+ * AiProcessingCard's icon ring pulse + progress-bar sweep — unaffected by
+ * the Ledger Quiet→Aero swap, still driven by the same `--primary`/`--muted`
+ * tokens (now resolving to Aero's accent/surface-sunken).
  */
 @keyframes ai-processing-pulse {
   0%,
@@ -477,6 +407,39 @@
   }
   100% {
     transform: translateX(220%);
+  }
+}
+
+/*
+ * Scroll-entrance reveal (README rule 6 + "Interactions & behavior"): rise
+ * 16px and fade over 420ms, once, fire-open (see `use-reveal.ts` — the
+ * observer force-reveals on mount-in-viewport, on resize, and after a 1.6s
+ * timeout no matter what, so content can never get stuck invisible).
+ * `prefers-reduced-motion` drops the transform, per spec.
+ */
+@keyframes aero-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-reveal] {
+  opacity: 0;
+}
+
+[data-reveal="in"] {
+  animation: aero-reveal var(--transition-duration-enter) var(--ease-enter) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    animation: none;
   }
 }
 

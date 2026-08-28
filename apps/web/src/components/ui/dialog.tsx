@@ -7,14 +7,13 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
- * "Ledger Quiet" dialog — NOT explicitly mocked in the handoff (no dialog
- * appears in any of the 4 mocked screens). Own extension beyond the literal
- * spec, flagged in this stage's report: a flat `--paper` panel with a
- * hairline `1px --line` border (the one defensible extra rule besides the
- * header/rail edge, since a dialog is inherently a distinct surface), no
- * radius, no shadow, ink-primary action buttons via the restyled `Button`,
- * mono `label-mono` treatment on the close affordance. Later stages'
- * BYOK-connect dialog and DIAN delete warning depend on this looking right.
+ * "Aero" modal (README "Overlays & feedback" → "Modal"): radius 20, bg
+ * `--surface`, `floating` shadow, padding 24, no border — depth comes from
+ * the shadow here (the one exception to rule 4's "border first", since a
+ * modal is genuinely floating above a scrim, not sitting flush in the
+ * page). Scrim is `rgba(11,18,32,.45)`, a fixed dark-navy tint independent
+ * of light/dark theme. Title `h3`, body `body-sm --ink-soft`, actions
+ * right-aligned (`DialogFooter`).
  */
 function Dialog({
   ...props
@@ -42,7 +41,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-ink/10 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-50 bg-[rgba(11,18,32,.45)] duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -64,7 +63,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-sm -translate-x-1/2 -translate-y-1/2 gap-4 border border-line bg-paper p-6 text-ink duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-sm -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-surface p-6 text-ink shadow-floating duration-150 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -99,7 +98,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end sm:items-center",
+        "flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end",
         className
       )}
       {...props}
@@ -127,7 +126,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-caption text-ink-soft", className)}
+      className={cn("text-body-sm text-ink-soft", className)}
       {...props}
     />
   )

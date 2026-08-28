@@ -4,14 +4,15 @@ import { Logo } from "@/components/brand/logo";
 export type AuthStat = { label: string; value: string; accent?: boolean };
 
 /**
- * Shared split-panel shell for sign-in/sign-up (design_handoff_freeops_
- * ledger_quiet "Sign in" mock): `1fr 380px`, min-height 400px — explicitly
- * NOT a centered card. Left panel (`--surface-sunken`) carries the
- * wordmark, a headline + live-stats block, and a footer line; right panel
- * carries whatever form content the page passes as `children`. Sign-in
- * uses this with "welcome back" stats; sign-up (not mocked explicitly)
- * reuses the exact same shell with first-time-visitor copy instead — see
- * that page for the extrapolation.
+ * Shared split-panel shell for sign-in/sign-up — not explicitly mocked in
+ * the "Aero" handoff (its 3 reference screens are marketing/dashboard/run-
+ * detail, no auth screen), extrapolated onto the same tokens: `1fr 380px`,
+ * min-height 400px, explicitly NOT a centered card. Left panel is a dark
+ * surface (`data-theme="dark"`, matching the marketing hero's register)
+ * carrying the wordmark, a headline + live-stats block, and a footer line;
+ * right panel (light) carries whatever form content the page passes as
+ * `children`. Sign-in uses this with "welcome back" stats; sign-up reuses
+ * the exact same shell with first-time-visitor copy instead.
  */
 export function AuthShell({
   leftHeadline,
@@ -24,12 +25,13 @@ export function AuthShell({
 }) {
   return (
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-[1fr_380px]">
-      <div className="hidden flex-col justify-between bg-surface-sunken px-[44px] py-[36px] md:flex">
+      <div
+        data-theme="dark"
+        className="hidden flex-col justify-between bg-bg px-[44px] py-[36px] md:flex"
+      >
         <Logo size="md" />
         <div>
-          <div className="max-w-[300px] text-[26px] leading-[1.15] font-medium tracking-[-0.02em] text-ink">
-            {leftHeadline}
-          </div>
+          <div className="max-w-[300px] text-h2 text-ink">{leftHeadline}</div>
           <div className="mt-[26px] flex flex-col gap-[14px]">
             {leftStats.map((stat) => (
               <div
@@ -38,7 +40,7 @@ export function AuthShell({
               >
                 <span>{stat.label}</span>
                 <span
-                  className={`font-mono text-[11px] ${stat.accent ? "text-accent" : "text-ink"}`}
+                  className={`font-mono text-[11px] ${stat.accent ? "text-accent-on-dark" : "text-ink"}`}
                 >
                   {stat.value}
                 </span>
