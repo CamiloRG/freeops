@@ -12,7 +12,7 @@
  * whenever Supabase Auth creates a new `auth.users` row; app code must
  * never insert into `public.users` directly.
  */
-import { check, index, pgSchema, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, pgSchema, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { citext, softDelete, timestamps } from "./_helpers";
 
@@ -48,6 +48,15 @@ export const users = pgTable(
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     locale: text("locale").notNull().default("es-CO"),
     timezone: text("timezone").notNull().default("America/Bogota"),
+    // Phase 7 Stage 2 addition: atomic per-user document-numbering
+    // counters for cuentas de cobro / invoices — claimed via the same
+    // race-safe `UPDATE ... SET x = x + 1 RETURNING x - 1` technique
+    // `kanban_boards.next_task_number` already uses (see
+    // `@/lib/services/finance`'s numbering helpers). Deliberately never
+    // resets across years — the year in `CDC-{year}-{seq}` /
+    // `INV-{year}-{seq}` just reflects `issueDate`'s year at claim time.
+    nextCuentaDeCobroNumber: integer("next_cuenta_de_cobro_number").notNull().default(1),
+    nextInvoiceNumber: integer("next_invoice_number").notNull().default(1),
     ...timestamps,
     ...softDelete,
   },

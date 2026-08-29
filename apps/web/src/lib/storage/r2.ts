@@ -21,6 +21,17 @@
  * profile photos are stored in the `branding-logos` bucket under a
  * distinct `profile-photos/<userId>/...` key prefix, separate from
  * `logos/<userId>/...` — flagged here and in this phase's report.
+ *
+ * Phase 7 Stage 2 addition: `financeDocuments` (`R2_BUCKET_FINANCE_
+ * DOCUMENTS`) is a genuinely NEW bucket — unlike the profile-photos case
+ * above, cuentas de cobro/invoice PDFs are a first-class, high-volume
+ * document type (every issued document gets one), not a "small use case"
+ * that should be squeezed into an existing bucket's key-prefix namespace.
+ * Key prefixes: `cuentas-de-cobro/<userId>/...` and `invoices/<userId>/...`.
+ * This bucket is NOT yet provisioned in the real Cloudflare account as of
+ * this stage — `bucketNameFor` throws the same clear "env var not set"
+ * error every other bucket already throws when misconfigured; there is
+ * deliberately no fallback-bucket workaround for its absence.
  */
 import {
   DeleteObjectCommand,
@@ -41,7 +52,8 @@ export type BucketName =
   | "contractDocuments"
   | "withholdingCertificates"
   | "vaultExports"
-  | "resumeExports";
+  | "resumeExports"
+  | "financeDocuments";
 
 const BUCKET_ENV_VAR: Record<BucketName, string> = {
   brandingLogos: "R2_BUCKET_BRANDING_LOGOS",
@@ -50,6 +62,7 @@ const BUCKET_ENV_VAR: Record<BucketName, string> = {
   withholdingCertificates: "R2_BUCKET_WITHHOLDING_CERTIFICATES",
   vaultExports: "R2_BUCKET_VAULT_EXPORTS",
   resumeExports: "R2_BUCKET_RESUME_EXPORTS",
+  financeDocuments: "R2_BUCKET_FINANCE_DOCUMENTS",
 };
 
 function bucketNameFor(bucket: BucketName): string {
@@ -282,6 +295,61 @@ export async function putResumeExportPdf(userId: string, pdfBuffer: Buffer): Pro
     })
   );
   return key;
+}
+
+/**
+ * Uploads a server-generated cuenta de cobro PDF to the `financeDocuments`
+ * bucket under `cuentas-de-cobro/<userId>/...` — same synchronous-
+ * generation-behind-an-async-shaped-contract pattern as
+ * `putResumeExportPdf` (see that function's doc comment and the
+ * `POST .../issue` Route Handler for the full flow).
+ */
+export async function putCuentaDeCobroPdf(userId: string, pdfBuffer: Buffer): Promise<string> {
+  const key = `cuentas-de-cobro/${userId}/${randomUUID()}.pdf`;
+  const client = getR2Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucketNameFor("financeDocuments"),
+      Key: key,
+      Body: pdfBuffer,
+      ContentType: "application/pdf",
+    })
+  );
+  return key;
+}
+
+/** Same as `putCuentaDeCobroPdf`, for invoices — `invoices/<userId>/...` prefix. */
+export async function putInvoicePdf(userId: string, pdfBuffer: Buffer): Promise<string> {
+  const key = `invoices/${userId}/${randomUUID()}.pdf`;
+  const client = getR2Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucketNameFor("financeDocuments"),
+      Key: key,
+      Body: pdfBuffer,
+      ContentType: "application/pdf",
+    })
+  );
+  return key;
+}
+
+/**
+ * Reads an object's raw bytes back out of R2 — used by
+ * `@/lib/services/finance-pdf` to fetch a freelancer's branding logo
+ * (`brandingLogos` bucket) so it can be embedded into a generated PDF via
+ * pdfkit's `doc.image()`, which needs bytes, not a key/URL. Every other
+ * R2 read in this app only ever needs a signed URL (`getSignedDownloadUrl`)
+ * for the browser to fetch directly — this is the one server-side
+ * exception, so it's kept separate rather than overloading that helper.
+ */
+export async function getFileBuffer(bucket: BucketName, key: string): Promise<Buffer> {
+  const client = getR2Client();
+  const result = await client.send(new GetObjectCommand({ Bucket: bucketNameFor(bucket), Key: key }));
+  if (!result.Body) {
+    throw new Error(`getFileBuffer: no body returned for ${bucket}/${key}.`);
+  }
+  const bytes = await result.Body.transformToByteArray();
+  return Buffer.from(bytes);
 }
 
 /** Checks whether `key` exists in `bucket` (used by the resume-export poll endpoint). */
