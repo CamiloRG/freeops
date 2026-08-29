@@ -17,11 +17,18 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { config as loadEnv } from "dotenv";
 import { and, eq } from "drizzle-orm";
 import { getDb, regulatoryConfigVersions } from "@freeops/db";
 import { parseRegulatoryConfigPayload } from "../src/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Same env resolution order as packages/db/src/migrate.ts: already-set
+// process env wins, then a local docker-compose override, then the shared
+// real Supabase credentials in apps/web/.env.local.
+loadEnv({ path: join(__dirname, "../.env.local"), quiet: true });
+loadEnv({ path: join(__dirname, "../../../apps/web/.env.local"), quiet: true });
 
 interface SeedFile {
   country: string;
