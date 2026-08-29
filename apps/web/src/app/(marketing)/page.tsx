@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
+import { PillarPicker } from "@/components/marketing/pillar-picker";
 
 const PROOF_STATS = [
   { value: "3", label: "módulos en un solo lugar" },
@@ -16,49 +17,29 @@ const SE_ENCARGA_DE = [
   { label: "Pipeline de clientes", marker: "manual" as const },
 ];
 
-const PILLARS = [
+// Real, immediately-available capabilities — deliberately NOT testimonials.
+// A pre-launch app with zero real customers has no honest quote to show;
+// this replaces what used to be fabricated named quotes with concrete,
+// verifiable value the product actually delivers in a first session.
+const DAY_ONE = [
   {
-    n: "01",
-    title: "Presencia profesional",
-    description:
-      "Un perfil completo, marca para tus facturas y cuentas de cobro, una hoja de vida que se arma sola desde tu historial de proyectos, y un enlace para agendar que tus prospectos usan directo en tu calendario real.",
-    features: [
-      "Perfil, banca y datos tributarios en un solo lugar",
-      "Logo y marca en cada documento generado",
-      "Hoja de vida que importa tus proyectos terminados",
-      "Enlace de agenda compartible (Gmail u Outlook)",
-    ],
+    text: "Tu perfil, banca y datos tributarios organizados en tu primera sesión.",
+    tag: "Día 1",
   },
   {
-    n: "02",
-    title: "Seguimiento del negocio",
-    description:
-      "Cada contrato, otrosí y cambio de alcance guardado contra el proyecto correcto, un kanban por proyecto para llevar el trabajo, y un pipeline de CRM simple que convierte un negocio cerrado en un proyecto automáticamente.",
-    features: [
-      "Contratos, otrosíes y cambios de alcance",
-      "Kanban personalizable por proyecto",
-      "Pipeline de CRM para oportunidades",
-      "Cerrado-ganado crea el proyecto automáticamente",
-    ],
+    text: "Tu primera cuenta de cobro generada en minutos, con tu marca.",
+    tag: "Día 1",
   },
   {
-    n: "03",
-    title: "Finanzas y compliance",
-    description:
-      "Genera cuentas de cobro y facturas de forma nativa, persigue pagos en mora automáticamente, calcula lo que debes de PILA cada mes, y entrégale a tu contador un paquete en vez de una caja de recibos.",
-    features: [
-      "Cuentas de cobro y facturación",
-      "Seguimiento automático de pagos en mora",
-      "Cálculo mensual de PILA (IBC)",
-      "Bóveda de documentos tributarios lista para tu contador",
-    ],
+    text: "Tu cálculo de PILA listo apenas registres los ingresos del mes.",
+    tag: "Día 1",
   },
 ];
 
-const QUOTES = [
-  { text: "Dejé de perseguir facturas. Ahora las manda solas.", author: "Ana · diseñadora" },
-  { text: "Mi PILA se calcula sola cada mes.", author: "Julián · desarrollador" },
-  { text: "Todo mi pipeline en un solo lugar.", author: "Marcela · consultora" },
+const ONBOARDING_STEPS = [
+  "Configura tu perfil",
+  "Conecta tu calendario",
+  "Genera tu primera cuenta de cobro",
 ];
 
 const PRODUCT_FRAME_ROWS = [
@@ -116,6 +97,9 @@ export default function MarketingHomePage() {
                 <a href="#pillars">Ver cómo funciona</a>
               </Button>
             </div>
+            <p className="mt-3 text-body-sm text-ink-muted">
+              Sin tarjeta. 2 minutos de configuración hoy — cero carreras de fin de mes.
+            </p>
             <div className="mt-[44px] flex flex-wrap gap-[32px]">
               {PROOF_STATS.map((stat) => (
                 <div key={stat.label}>
@@ -187,8 +171,11 @@ export default function MarketingHomePage() {
       </section>
 
       {/* Value band — light, three cards with numbered accent-tint tiles
-          (Aero screen 1's "light value band"). Content unchanged from the
-          prior build (pillars), only the container is now a real Card. */}
+          (Aero screen 1's "light value band"). Now an interactive
+          PillarPicker: pre-selected to the highest-frequency pain point
+          (Smart Defaults, never blank), user can switch it (IKEA effect —
+          light ownership before the sign-up CTA), selected card reorders
+          first and gains its own "Empezar por aquí" link. */}
       <section id="pillars" className="bg-bg">
         <div className="mx-auto max-w-[1280px] px-[22px] py-[64px] md:px-[44px]">
           <Reveal as="div" className="max-w-measure">
@@ -202,26 +189,8 @@ export default function MarketingHomePage() {
             </p>
           </Reveal>
 
-          <div className="mt-[40px] grid grid-cols-1 gap-5 md:grid-cols-3">
-            {PILLARS.map((pillar) => (
-              <Reveal key={pillar.n} as="div">
-                <Card className="h-full">
-                  <div className="flex size-9 items-center justify-center rounded-tile bg-accent-tint font-mono text-[12px] font-medium text-accent-press">
-                    {pillar.n}
-                  </div>
-                  <h3 className="mt-4 text-h3 text-ink">{pillar.title}</h3>
-                  <p className="mt-2 text-body-sm text-ink-soft">{pillar.description}</p>
-                  <ul className="mt-4 flex flex-col gap-2">
-                    {pillar.features.map((feature) => (
-                      <li key={feature} className="text-body-sm text-ink">
-                        <span className="mr-2 text-ink-muted">—</span>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              </Reveal>
-            ))}
+          <div className="mt-[40px]">
+            <PillarPicker />
           </div>
         </div>
       </section>
@@ -259,14 +228,27 @@ export default function MarketingHomePage() {
         </div>
       </section>
 
-      {/* Testimonials — real sample quotes carried over verbatim. */}
+      {/* "Desde el día 1" — replaces a prior testimonials band that quoted
+          fabricated named users; this is a pre-launch app with zero real
+          customers, so that was fake social proof, not a stylistic choice
+          to preserve. Reciprocity applied honestly instead: concrete,
+          verifiable capabilities available immediately, no invented people. */}
       <section className="bg-bg">
         <Reveal as="div" className="mx-auto max-w-[1280px] px-[22px] py-[64px] md:px-[44px]">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {QUOTES.map((quote) => (
-              <Card key={quote.author} size="sm">
-                <p className="text-body-sm text-ink">{quote.text}</p>
-                <p className="mt-3 font-mono text-data-mono text-ink-muted">{quote.author}</p>
+          <div className="font-mono text-label-mono tracking-[0.14em] text-ink-muted uppercase">
+            Desde el día 1
+          </div>
+          <p className="mt-3 max-w-measure text-body text-ink-soft">
+            No es una lista de funciones — es lo que ya tienes listo desde tu
+            primera sesión, sin esperar a &ldquo;configurarlo después&rdquo;.
+          </p>
+          <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+            {DAY_ONE.map((item) => (
+              <Card key={item.text} size="sm">
+                <p className="text-body-sm text-ink">{item.text}</p>
+                <p className="mt-3 font-mono text-data-mono text-ink-muted uppercase">
+                  {item.tag}
+                </p>
               </Card>
             ))}
           </div>
@@ -280,13 +262,25 @@ export default function MarketingHomePage() {
           <div className="max-w-measure">
             <h2 className="text-display text-ink">Saca tu admin de tu plato</h2>
             <p className="mt-4 text-body text-ink-soft">
-              Configura tu perfil, conecta tu calendario y genera tu primera
-              cuenta de cobro en una sola sentada.
+              Tres pasos cortos — y ya sabes cuáles son.
             </p>
+            <ol className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
+              {ONBOARDING_STEPS.map((step, index) => (
+                <li key={step} className="flex items-center gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-tint font-mono text-[12px] font-medium text-accent-on-dark">
+                    {index + 1}
+                  </span>
+                  <span className="text-body-sm text-ink">{step}</span>
+                </li>
+              ))}
+            </ol>
             <div className="mt-[34px]">
               <Button size="lg" asChild>
                 <Link href="/sign-up">Empezar gratis</Link>
               </Button>
+              <p className="mt-3 text-body-sm text-ink-muted">
+                Sin tarjeta. Cancela cuando quieras.
+              </p>
             </div>
           </div>
         </Reveal>
