@@ -60,8 +60,10 @@ export const NAV_TREE: NavSection[] = [
   {
     label: "Finanzas",
     icon: Wallet,
-    href: "/finance",
-    breadcrumb: "Finanzas",
+    children: [
+      { label: "Cuentas de cobro", href: "/finance/cuentas-de-cobro", breadcrumb: "Finanzas / Cuentas de cobro" },
+      { label: "Facturas", href: "/finance/invoices", breadcrumb: "Finanzas / Facturas" },
+    ],
   },
   {
     label: "Configuraciones",

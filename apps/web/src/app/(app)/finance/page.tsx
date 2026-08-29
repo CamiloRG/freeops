@@ -1,20 +1,11 @@
-import { SectionPlaceholder } from "@/components/layout/section-placeholder";
+import { redirect } from "next/navigation";
 
-export default function FinancePage() {
-  return (
-    <SectionPlaceholder
-      title="Finance"
-      description="Cuentas de cobro, invoicing, payment follow-up, PILA, and your tax vault."
-      phase="Phases 7, 9–10, 12"
-      screens={[
-        "Cuentas de cobro generator",
-        "Invoices",
-        "Payments & overdue dashboard",
-        "Withholding-certificate tracker",
-        "PILA calculator & guided operator hand-off",
-        "Tax-document vault",
-        "Subscription / billing settings",
-      ]}
-    />
-  );
+/**
+ * `/finance` itself has no dedicated screen this stage (no combined-
+ * dashboard scope yet — see the phase report) — redirects to its first
+ * real child, same as every other section whose sidebar entry is a tree
+ * rather than a single page.
+ */
+export default function FinanceIndexPage() {
+  redirect("/finance/cuentas-de-cobro");
 }

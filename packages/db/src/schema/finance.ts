@@ -5,11 +5,23 @@
  * Financial/tax-relevant: soft-delete + DIAN warning applies to every
  * table in this domain (see `audit.ts` for the warning log).
  */
-import { boolean, char, check, date, index, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, char, check, date, index, jsonb, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { idColumn, softDelete, timestamps } from "./_helpers";
 import { users } from "./identity";
 import { projects } from "./business";
+
+// Stage 2 (Phase 7) addition: itemized line items, an alternative to the
+// flat `concept`+`amount` entry. Shape deliberately clearer than
+// app_spec.md's ambiguous `items: [{description, amount, quantity}]` —
+// `lineTotal` is never stored (computed as `quantity * unitAmount` at read
+// time) to avoid drift; `amount`/`totalAmount` stay the source of truth,
+// kept in sync by the service layer whenever `items` is present.
+export type FinanceLineItem = {
+  description: string;
+  quantity: number;
+  unitAmount: number;
+};
 
 export const cuentasDeCobro = pgTable(
   "cuentas_de_cobro",
@@ -24,6 +36,10 @@ export const cuentasDeCobro = pgTable(
     clientTaxId: text("client_tax_id"),
     concept: text("concept").notNull(),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    // Nullable — absent/null means the classic flat concept+amount entry;
+    // present+non-empty means `amount` above is the app-computed sum of
+    // each item's `quantity * unitAmount` (see doc comment above).
+    items: jsonb("items").$type<FinanceLineItem[]>(),
     currency: char("currency", { length: 3 }).notNull().default("COP"),
     issueDate: date("issue_date").notNull(),
     dueDate: date("due_date").notNull(),
@@ -60,7 +76,11 @@ export const invoices = pgTable(
     number: text("number").notNull(),
     clientName: text("client_name").notNull(),
     clientTaxId: text("client_tax_id"),
-    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(), // pre-tax
+    // Same itemization convention as `cuentas_de_cobro.items` above — when
+    // present+non-empty, `amount` (pre-tax) is the app-computed sum of each
+    // item's `quantity * unitAmount`.
+    items: jsonb("items").$type<FinanceLineItem[]>(),
     taxAmount: numeric("tax_amount", { precision: 14, scale: 2 }).notNull().default("0"),
     totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("COP"),
