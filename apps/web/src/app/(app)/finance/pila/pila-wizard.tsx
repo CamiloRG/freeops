@@ -419,10 +419,10 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
           <table className="w-full text-left text-body-sm">
             <thead>
               <tr className="font-mono text-label-mono tracking-[0.14em] text-ink-muted uppercase">
-                <th className="pb-2 font-normal">Mes</th>
-                <th className="pb-2 text-right font-normal">IBC</th>
-                <th className="pb-2 text-right font-normal">Total</th>
-                <th className="pb-2 font-normal">Estado</th>
+                <th className="pb-2 pr-4 font-normal">Mes</th>
+                <th className="pb-2 pr-4 text-right font-normal">IBC</th>
+                <th className="pb-2 pr-4 text-right font-normal">Total</th>
+                <th className="pb-2 pr-4 font-normal">Estado</th>
                 <th className="pb-2 font-normal" />
               </tr>
             </thead>
