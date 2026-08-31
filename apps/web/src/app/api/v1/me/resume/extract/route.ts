@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       const { tier, apiKey } = await determineTier(tx, user.id);
 
       if (tier === "default") {
-        const { underLimit, used, limit } = await isUnderDefaultTierLimit(tx, user.id);
+        const { underLimit, used, limit } = await isUnderDefaultTierLimit(tx, user.id, "resume");
         if (!underLimit) {
           // Rejected before ever calling Claude — no point spending
           // FreeOps's own money on a request that's guaranteed to be
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
         const quota =
           tier === "default"
-            ? { used: (await isUnderDefaultTierLimit(tx, user.id)).used, limit: 5 }
+            ? { used: (await isUnderDefaultTierLimit(tx, user.id, "resume")).used, limit: 5 }
             : null;
 
         return { extracted, tier, quota };

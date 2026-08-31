@@ -1,25 +1,45 @@
 /**
- * Tier determination + default-tier rate limiting for AI resume
- * extraction — user-proposed feature beyond app_spec.md's original scope
- * (see the codebase-memory-mcp ADR).
+ * Tier determination + default-tier rate limiting for AI extraction
+ * features — user-proposed, beyond app_spec.md's original scope (see the
+ * codebase-memory-mcp ADR). Originally resume-only; generalized to a
+ * per-`documentType` cap when bank-certificate extraction (Aero banking
+ * multi-account rollout) reused the same BYOK/default-tier mechanism, so
+ * usage from one feature never counts against another's monthly cap.
  *
  * Tier rule: if the user has an active, VERIFIED `ai_provider_connections`
  * row for `'anthropic'`, tier is `'byok'` (their own key, no FreeOps-side
- * limit). Otherwise tier is `'default'` (FreeOps's own key, capped at
- * `DEFAULT_TIER_MONTHLY_LIMIT` extractions per calendar month, counted
- * from `ai_extraction_log`).
+ * limit). Otherwise tier is `'default'` (FreeOps's own key, capped per
+ * `documentType` — see `DEFAULT_TIER_MONTHLY_LIMITS` below — counted from
+ * `ai_extraction_log`).
+ *
+ * Both limits are currently 5/month and deliberately equal, NOT because
+ * the two features are expected to cost the same — it's a placeholder
+ * while FreeOps has no real subscription tiers yet (Phase 12/Stripe). Once
+ * paid tiers exist, the real per-feature cap should come from the user's
+ * plan, not this hardcoded constant — flagged here rather than silently
+ * treated as a permanent design choice.
  *
  * The cap MUST be checked before calling Claude, never after — see the
- * `/api/v1/me/resume/extract` Route Handler, which calls
- * `isUnderDefaultTierLimit` and rejects with 429 before ever constructing
- * an Anthropic client for a default-tier request at/over cap.
+ * `/api/v1/me/resume/extract` and `/api/v1/me/banking/extract` Route
+ * Handlers, which call `isUnderDefaultTierLimit` and reject with 429
+ * before ever constructing an Anthropic client for a default-tier request
+ * at/over cap.
  */
 import { and, count, eq, gte } from "drizzle-orm";
 import { aiExtractionLog } from "@freeops/db/schema";
 import type { RlsTx } from "@freeops/db/rls-client";
 import { getVerifiedApiKey } from "@/lib/services/ai-connections";
 
-export const DEFAULT_TIER_MONTHLY_LIMIT = 5;
+export type ExtractionDocumentType = "resume" | "bank_certificate";
+
+/** See this file's doc comment — a dev-time placeholder, not a final per-tier cap. */
+export const DEFAULT_TIER_MONTHLY_LIMITS: Record<ExtractionDocumentType, number> = {
+  resume: 5,
+  bank_certificate: 5,
+};
+
+/** @deprecated kept for any external reference to the old resume-only constant name; use `DEFAULT_TIER_MONTHLY_LIMITS.resume`. */
+export const DEFAULT_TIER_MONTHLY_LIMIT = DEFAULT_TIER_MONTHLY_LIMITS.resume;
 
 export type ExtractionTier = "default" | "byok";
 
@@ -43,8 +63,12 @@ export async function determineTier(tx: RlsTx, userId: string): Promise<TierDeci
   return { tier: "default" };
 }
 
-/** Counts `ai_extraction_log` rows for `userId` with `tier = 'default'` created within the current calendar month — the rate-limit source of truth. */
-export async function countDefaultTierUsageThisMonth(tx: RlsTx, userId: string): Promise<number> {
+/** Counts `ai_extraction_log` rows for `userId`/`documentType` with `tier = 'default'` created within the current calendar month — the rate-limit source of truth. */
+export async function countDefaultTierUsageThisMonth(
+  tx: RlsTx,
+  userId: string,
+  documentType: ExtractionDocumentType
+): Promise<number> {
   const monthStart = startOfCurrentMonthUtc();
   const [row] = await tx
     .select({ value: count() })
@@ -52,6 +76,7 @@ export async function countDefaultTierUsageThisMonth(tx: RlsTx, userId: string):
     .where(
       and(
         eq(aiExtractionLog.userId, userId),
+        eq(aiExtractionLog.documentType, documentType),
         eq(aiExtractionLog.tier, "default"),
         gte(aiExtractionLog.createdAt, monthStart)
       )
@@ -65,7 +90,12 @@ export interface DefaultTierLimitStatus {
   limit: number;
 }
 
-export async function isUnderDefaultTierLimit(tx: RlsTx, userId: string): Promise<DefaultTierLimitStatus> {
-  const used = await countDefaultTierUsageThisMonth(tx, userId);
-  return { underLimit: used < DEFAULT_TIER_MONTHLY_LIMIT, used, limit: DEFAULT_TIER_MONTHLY_LIMIT };
+export async function isUnderDefaultTierLimit(
+  tx: RlsTx,
+  userId: string,
+  documentType: ExtractionDocumentType
+): Promise<DefaultTierLimitStatus> {
+  const limit = DEFAULT_TIER_MONTHLY_LIMITS[documentType];
+  const used = await countDefaultTierUsageThisMonth(tx, userId, documentType);
+  return { underLimit: used < limit, used, limit };
 }

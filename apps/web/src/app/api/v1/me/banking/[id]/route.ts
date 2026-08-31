@@ -1,34 +1,21 @@
 /**
- * GET/POST /api/v1/me/banking — app_spec.md § "API Contracts &
- * Integrations" → "1. Freelancer profile, banking & tax data" (banking
- * half), extended for the Aero multi-account rollout: GET now returns
- * every active account (was one object, now a list), and POST creates a
- * new one — both require step-up password re-authentication first (§
- * "Security & Compliance" → "Authentication & Authorization"). Editing an
- * existing account is `PUT /api/v1/me/banking/:id` (see `[id]/route.ts`).
+ * PUT /api/v1/me/banking/:id — edits one existing bank account (Aero
+ * multi-account rollout). Same step-up password re-authentication as
+ * creating a new one (see `../route.ts`).
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { withRlsContext } from "@freeops/db/rls-client";
 import { requireUser } from "@/lib/db/rls";
 import { toApiErrorResponse, apiErrorResponse } from "@/lib/api/errors";
-import { bankingCreateSchema } from "@/lib/validation/personal";
-import { createBankingAccount, listBankingAccounts } from "@/lib/services/banking";
+import { bankingUpdateSchema } from "@/lib/validation/personal";
+import { updateBankingAccount } from "@/lib/services/banking";
 import { verifyPasswordStepUp } from "@/lib/auth/step-up";
 
-export async function GET() {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { user, accessToken } = await requireUser();
-    const accounts = await withRlsContext(accessToken, (tx) => listBankingAccounts(tx, user.id));
-    return NextResponse.json({ data: accounts });
-  } catch (error) {
-    return toApiErrorResponse(error);
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
+    const { id } = await params;
     const body = await request.json();
-    const input = bankingCreateSchema.parse(body);
+    const input = bankingUpdateSchema.parse(body);
 
     const { user, accessToken } = await requireUser();
     if (!user.email) {
@@ -54,8 +41,8 @@ export async function POST(request: NextRequest) {
       certificateFileKey: input.certificateFileKey,
       certificateFileName: input.certificateFileName,
     };
-    const result = await withRlsContext(accessToken, (tx) => createBankingAccount(tx, user.id, bankingInput));
-    return NextResponse.json(result, { status: 201 });
+    const result = await withRlsContext(accessToken, (tx) => updateBankingAccount(tx, user.id, id, bankingInput));
+    return NextResponse.json(result);
   } catch (error) {
     return toApiErrorResponse(error);
   }

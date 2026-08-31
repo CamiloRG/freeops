@@ -31,6 +31,15 @@ export const freelancerProfiles = pgTable("freelancer_profiles", {
 });
 
 // Sensitive: encrypted at rest (see _helpers.bytea). Soft-delete only, DIAN warning applies.
+//
+// Multi-account support (added post-launch, Aero design rollout): a user
+// may hold more than one account (e.g. a primary Bancolombia savings
+// account plus a secondary Davivienda checking account) — `isPrimary`
+// flags exactly one active row per user as the one auto-attached to new
+// cuentas de cobro/invoices; enforced in the application layer
+// (`@/lib/services/banking`'s `setPrimaryAccount`), not a DB constraint,
+// since a partial-unique-index flip-on-update is more ceremony than this
+// low-write-frequency table needs.
 export const bankingDetails = pgTable(
   "banking_details",
   {
@@ -43,7 +52,19 @@ export const bankingDetails = pgTable(
     accountNumberEncrypted: bytea("account_number_encrypted").notNull(),
     accountHolderName: text("account_holder_name").notNull(),
     accountHolderTaxIdEncrypted: bytea("account_holder_tax_id_encrypted"),
+    // ISO 4217 code, e.g. 'COP' — every account seen in practice is COP,
+    // but the column is free text (not CHECK-constrained to one value) so
+    // a future USD/foreign-currency account isn't a schema migration.
+    currency: text("currency").notNull().default("COP"),
     isPrimary: boolean("is_primary").notNull().default(true),
+    // Bank certification PDF/image backing this row, if one was uploaded
+    // (either via the AI-extraction flow or attached afterward) — R2 key
+    // in the existing `taxDocuments` bucket (see `@/lib/storage/r2`'s
+    // `bankCertificate` slot doc comment for why this reuses that bucket
+    // rather than provisioning a new one). Null for an account entered by
+    // hand with no certificate on file.
+    certificateFileKey: text("certificate_file_key"),
+    certificateFileName: text("certificate_file_name"),
     ...timestamps,
     ...softDelete,
   },

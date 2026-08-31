@@ -2,7 +2,7 @@ import { withUserDb } from "@/lib/db/rls";
 import { getResumeFull } from "@/lib/services/resume";
 import { getSignedDownloadUrl } from "@/lib/storage/r2";
 import { getConnectionSummary } from "@/lib/services/ai-connections";
-import { DEFAULT_TIER_MONTHLY_LIMIT, isUnderDefaultTierLimit } from "@/lib/ai/rate-limit";
+import { DEFAULT_TIER_MONTHLY_LIMITS, isUnderDefaultTierLimit } from "@/lib/ai/rate-limit";
 import { ResumeForm } from "./resume-form";
 
 export default async function ResumePage() {
@@ -18,7 +18,7 @@ export default async function ResumePage() {
     // alongside the existing resume data load.
     const connection = await getConnectionSummary(tx, user.id, "anthropic");
     const byokConnected = Boolean(connection?.verifiedAt);
-    const quota = byokConnected ? null : await isUnderDefaultTierLimit(tx, user.id);
+    const quota = byokConnected ? null : await isUnderDefaultTierLimit(tx, user.id, "resume");
 
     return {
       initial: {
@@ -42,7 +42,7 @@ export default async function ResumePage() {
         byokConnected,
         byokKeyHint: connection?.apiKeyHint ?? null,
         remaining: quota ? quota.limit - quota.used : null,
-        limit: DEFAULT_TIER_MONTHLY_LIMIT,
+        limit: DEFAULT_TIER_MONTHLY_LIMITS.resume,
       },
     };
   });

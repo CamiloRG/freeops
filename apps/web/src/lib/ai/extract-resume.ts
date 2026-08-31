@@ -18,6 +18,7 @@
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicClient } from "./client";
+import { looksCorrupted, sanitizeField } from "./sanitize";
 
 export const RESUME_EXTRACTION_MODEL = "claude-haiku-4-5" as const;
 
@@ -149,54 +150,13 @@ function normalizeDate(value: string | undefined): string | null {
 }
 
 /**
- * Defense-in-depth against a real, deterministically-reproducible failure
- * mode: Haiku 4.5, when forced (via `tool_choice`) to fill a string field
- * for which the source document has no genuine content (most often
- * `summary` on a resume with no bio/objective paragraph), can emit
- * Anthropic's own internal tool-call tag syntax (e.g. `</parameter>`,
- * `<parameter name="...">`, `<invoke>`) as the literal field VALUE instead
- * of plain prose. Confirmed 5/5 reproducible against the real API with a
- * synthetic no-bio resume; a stricter field description alone (see
- * `RESUME_EXTRACTION_TOOL`'s `summary` description) reduced but did NOT
- * reliably eliminate it, so this pattern-based check is the actual
- * backstop — any string field matching it is treated as corrupted and
- * dropped entirely (fail closed) rather than partially cleaned, since a
- * field that has gone this wrong has no reliable prose left to salvage.
- * Deliberately broad (matches ANY tag-like `<...>` structure, attributes
- * included) — a resume field has no legitimate reason to contain markup,
- * so a false-positive strip is a far smaller cost than a leaked tag
- * reaching the user's screen unfiltered.
+ * `looksCorrupted`/`sanitizeField` now live in `./sanitize` (shared with
+ * `extract-bank-certificate.ts`) — see that file's doc comment for the
+ * full discovery story (deterministically-reproducible against a synthetic
+ * no-bio resume, both the tool-call-tag and code-fragment leak shapes).
  *
- * A second pattern, `CODE_LEAK_PATTERN`, was added after the same live
- * verification run also produced a DIFFERENT corruption shape once (not
- * XML-tag-like at all): a `skills` entry came back as literal JS-ish
- * fragments (`").concat(records["`, `type=`) instead of a skill name —
- * evidently the same underlying "forced to emit content that isn't really
- * there" failure mode, just leaking a different internal syntax. Braces,
- * backslashes, and backticks never legitimately appear in resume field
- * text, and `.concat(`/`=>`/`function(`/`type=`/`name=`/`${` are
- * recognizable code/template-literal/JSON-attribute fragments — none of
- * which any real skill, title, or prose sentence would contain (verified
- * against ordinary tokens like "C++", "Node.js", "CI/CD" not matching).
+ * True if any string field anywhere in a raw extraction result looks corrupted.
  */
-const TOOL_ARTIFACT_PATTERN = /<\/?[a-zA-Z_][\w:-]*(?:\s[^<>]*)?>/;
-const CODE_LEAK_PATTERN = /[{}\\`]|\.concat\(|=>|\bfunction\s*\(|\btype\s*=\s*["']?|\bname\s*=\s*["']?|\$\{/i;
-
-/** True if `value` shows signs of a tool-call-tag or code-fragment leak (see above). */
-function looksCorrupted(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return TOOL_ARTIFACT_PATTERN.test(value) || CODE_LEAK_PATTERN.test(value);
-}
-
-/** Trims a raw string field and fails closed (drops it) if it looks corrupted. */
-function sanitizeField(value: string | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  if (looksCorrupted(trimmed)) return null;
-  return trimmed;
-}
-
-/** True if any string field anywhere in a raw extraction result looks corrupted. */
 function anyFieldCorrupted(raw: RawExtraction): boolean {
   if (looksCorrupted(raw.headline) || looksCorrupted(raw.summary)) return true;
   if ((raw.skills ?? []).some(looksCorrupted)) return true;

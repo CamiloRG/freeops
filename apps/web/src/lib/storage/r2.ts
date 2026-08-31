@@ -147,6 +147,17 @@ export const UPLOAD_SLOTS = {
     allowedMimeTypes: ["application/pdf", "image/png", "image/jpeg"] as const,
     maxSizeBytes: 10 * 1024 * 1024,
   },
+  // Bank certification uploads (Aero banking multi-account rollout) — POST
+  // /api/v1/me/banking/extract and the per-account certificate dialog.
+  // Unlike `resumeImport`, this file IS persisted (to `taxDocuments`, under
+  // `banking-certificates/<userId>/...` — reusing that existing bucket
+  // rather than provisioning a new one, same "small use case, existing
+  // bucket" precedent as profile photos → `brandingLogos`), since the
+  // "Certificación" button on a saved account needs something to show.
+  bankCertificate: {
+    allowedMimeTypes: ["application/pdf", "image/png", "image/jpeg"] as const,
+    maxSizeBytes: 10 * 1024 * 1024,
+  },
 } satisfies Record<string, { allowedMimeTypes: readonly string[]; maxSizeBytes: number }>;
 
 export type UploadSlot = keyof typeof UPLOAD_SLOTS;

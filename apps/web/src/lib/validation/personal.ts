@@ -55,8 +55,14 @@ export const profileUpdateSchema = z.object({
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 
 // --- 2. Banking Details ------------------------------------------------------
+//
+// Aero multi-account rollout: a user may hold more than one bank account
+// (see `@/lib/services/banking`'s doc comment), so the old single
+// upsert-schema became one shared field schema plus a create/update pair
+// that both extend it — `currentPassword` step-up stays required on both,
+// same rationale as before (app_spec.md § "Authentication & Authorization").
 
-export const bankingUpsertSchema = z.object({
+const bankingFieldsSchema = z.object({
   bankName: z.string().trim().min(1, "Enter the bank name.").max(200),
   accountType: z.enum(["savings", "checking"]),
   accountNumber: z
@@ -67,13 +73,28 @@ export const bankingUpsertSchema = z.object({
     .regex(/^[0-9-]+$/, "Account number should contain only digits and dashes."),
   accountHolderName: z.string().trim().min(1, "Enter the account holder's name.").max(200),
   accountHolderTaxId: z.string().trim().max(20).optional().or(z.literal("")),
-  // Step-up re-authentication (app_spec.md § "Authentication & Authorization"
-  // — re-confirm identity before editing banking details). Not a literal
-  // field in the spec's PUT body prose, but required by the same section's
-  // step-up mandate; documented here as the concrete mechanism.
+  currency: z.string().trim().min(1).max(10).optional(),
+  // Set when the account being saved was AI-extracted and the certificate
+  // was already uploaded to R2 by `/api/v1/me/banking/extract` — the
+  // create call attaches it to the new row rather than re-uploading.
+  certificateFileKey: z.string().trim().min(1).optional().nullable(),
+  certificateFileName: z.string().trim().min(1).max(255).optional().nullable(),
+});
+
+export const bankingCreateSchema = bankingFieldsSchema.extend({
+  // Only meaningful when the user already has at least one account — the
+  // very first account is always primary regardless of this flag (see
+  // `createBankingAccount`).
+  isPrimary: z.boolean().optional(),
   currentPassword: z.string().min(1, "Re-enter your password to confirm this change."),
 });
-export type BankingUpsertInput = z.infer<typeof bankingUpsertSchema>;
+export type BankingCreateInput = z.infer<typeof bankingCreateSchema>;
+
+export const bankingUpdateSchema = bankingFieldsSchema.extend({
+  isPrimary: z.boolean().optional(),
+  currentPassword: z.string().min(1, "Re-enter your password to confirm this change."),
+});
+export type BankingUpdateInput = z.infer<typeof bankingUpdateSchema>;
 
 // --- 3. Tax Information -------------------------------------------------------
 

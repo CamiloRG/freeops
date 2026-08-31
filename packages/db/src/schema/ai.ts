@@ -69,7 +69,8 @@ export const aiExtractionLog = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    // v1 scope: only 'resume' — same forward-compatible CHECK pattern.
+    // 'resume' (v1) + 'bank_certificate' (Aero banking multi-account
+    // rollout) — same forward-compatible CHECK pattern.
     documentType: text("document_type").notNull(),
     // Which tier served the call — determines whether this row counts
     // against the default tier's monthly cap (see rate-limit.ts).
@@ -113,7 +114,10 @@ export const aiExtractionLog = pgTable(
     // Backs the rate-limit query: count rows for (user_id, tier='default')
     // within the current calendar month.
     index("idx_ai_extraction_log_user_tier_created").on(table.userId, table.tier, table.createdAt),
-    check("ai_extraction_log_document_type_check", sql`${table.documentType} in ('resume')`),
+    check(
+      "ai_extraction_log_document_type_check",
+      sql`${table.documentType} in ('resume','bank_certificate')`
+    ),
     check("ai_extraction_log_tier_check", sql`${table.tier} in ('default','byok')`),
     check("ai_extraction_log_status_check", sql`${table.status} in ('succeeded','failed')`),
   ]

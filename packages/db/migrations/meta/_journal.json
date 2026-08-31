@@ -127,6 +127,13 @@
       "when": 1788146039376,
       "tag": "0017_majestic_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788148542157,
+      "tag": "0018_banking_multi_account",
+      "breakpoints": true
     }
   ]
 }
