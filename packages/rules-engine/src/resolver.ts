@@ -6,6 +6,7 @@
  */
 import { and, desc, eq, isNull, lte, or, gt } from "drizzle-orm";
 import { regulatoryConfigVersions, type Db } from "@freeops/db";
+import type { RlsTx } from "@freeops/db/rls-client";
 import { parseRegulatoryConfigPayload, type RegulatoryConfigPayload } from "./config";
 
 export interface ResolveActiveRegulatoryConfigInput {
@@ -54,7 +55,7 @@ export class NoActiveRegulatoryConfigError extends Error {
  * so callers never receive an unvalidated jsonb blob.
  */
 export async function resolveActiveRegulatoryConfig(
-  db: Db,
+  db: Db | RlsTx,
   input: ResolveActiveRegulatoryConfigInput
 ): Promise<ResolvedRegulatoryConfig> {
   const forDateStr = toDateOnlyString(input.forDate);

@@ -69,6 +69,7 @@ export const NAV_TREE: NavSection[] = [
         href: "/finance/withholding-certificates",
         breadcrumb: "Finanzas / Retenciones",
       },
+      { label: "PILA", href: "/finance/pila", breadcrumb: "Finanzas / PILA" },
     ],
   },
   {

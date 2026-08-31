@@ -38,6 +38,9 @@ importers:
       '@freeops/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@freeops/rules-engine':
+        specifier: workspace:*
+        version: link:../../packages/rules-engine
       '@hookform/resolvers':
         specifier: ^5.9.1
         version: 5.9.1(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.8))(zod@4.4.3)
