@@ -120,6 +120,13 @@
       "when": 1788143154866,
       "tag": "0016_legal_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788146039376,
+      "tag": "0017_majestic_iron_patriot",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "pila_records" ADD COLUMN "confirmation_reference" text;

@@ -104,6 +104,15 @@ export const pilaRecords = pgTable(
     status: text("status").notNull().default("calculated"), // calculated | paid | overdue
     paidAt: date("paid_at"),
     deepLinkUrl: text("deep_link_url"), // guided hand-off deep link to the chosen operator's site
+    // Stage 4 (Phase 7) addition — the spec's own API contract
+    // (`POST /api/v1/pila/calculations/:id/confirm-paid` body) includes
+    // `confirmationReference`, but this table never got the column. Same
+    // category of small additive gap-fill as Stage 3's `expected_amount`/
+    // `requires_withholding_certificate` additions. Freelancer self-
+    // reported only (e.g. an operator receipt/reference number) — never
+    // verified against any upstream operator, since none of the 4
+    // operators (MiPlanilla/SOI/Aportes en Línea/Simple) expose an API.
+    confirmationReference: text("confirmation_reference"),
     ...timestamps,
     ...softDelete,
   },
