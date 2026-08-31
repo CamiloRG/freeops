@@ -53,6 +53,8 @@ import {
   type FinancePdfClient,
   type FinancePdfFreelancer,
 } from "@/lib/services/finance-pdf";
+import { createPendingPaymentForCuentaDeCobro, createPendingPaymentForInvoice } from "@/lib/services/payments";
+import { createWithholdingCertificateForDocument } from "@/lib/services/withholding-certificates";
 
 // --- Shared helpers --------------------------------------------------------
 
@@ -152,6 +154,7 @@ export async function createCuentaDeCobro(tx: RlsTx, userId: string, input: Cuen
   const items = input.items?.length ? input.items : null;
   const amount = items ? computeItemsAmount(items) : input.amount!;
   const number = await claimCuentaDeCobroNumber(tx, userId, input.issueDate);
+  const requiresWithholdingCertificate = input.requiresWithholdingCertificate ?? false;
 
   const [created] = await tx
     .insert(cuentasDeCobro)
@@ -167,9 +170,24 @@ export async function createCuentaDeCobro(tx: RlsTx, userId: string, input: Cuen
       currency: input.currency ?? "COP",
       issueDate: input.issueDate,
       dueDate: input.dueDate,
-      requiresWithholdingCertificate: input.requiresWithholdingCertificate ?? false,
+      requiresWithholdingCertificate,
     })
     .returning();
+
+  // Stage 3 (Phase 7) auto-creation hook — app_spec.md § "12. Withholding
+  // certificates": when the freelancer flags this document as needing a
+  // withholding certificate, atomically create a `pending` tracking row in
+  // the same transaction, linked back to this document.
+  if (created && requiresWithholdingCertificate) {
+    await createWithholdingCertificateForDocument(tx, userId, {
+      projectId: created.projectId,
+      clientName: created.clientName,
+      issueDate: created.issueDate,
+      cuentaDeCobroId: created.id,
+      invoiceId: null,
+    });
+  }
+
   return created;
 }
 
@@ -240,12 +258,23 @@ export async function issueCuentaDeCobro(tx: RlsTx, userId: string, id: string) 
   return { cdc, pdfBuffer };
 }
 
+/**
+ * Flips a draft cuenta de cobro to `issued` and stores its PDF key. Also
+ * creates the one `pending` `payments` row for it — see
+ * `@/lib/services/payments`'s doc comment for why payment rows are only
+ * ever created here (issue time), never at document-creation time. Same
+ * transaction as the caller (`.../issue/route.ts`), so both writes commit
+ * or roll back together.
+ */
 export async function finalizeCuentaDeCobroIssue(tx: RlsTx, id: string, pdfFileKey: string) {
   const [updated] = await tx
     .update(cuentasDeCobro)
     .set({ status: "issued", pdfFileKey, updatedAt: new Date() })
     .where(eq(cuentasDeCobro.id, id))
     .returning();
+  if (updated) {
+    await createPendingPaymentForCuentaDeCobro(tx, updated.userId, { id: updated.id, currency: updated.currency });
+  }
   return updated;
 }
 
@@ -274,6 +303,7 @@ export async function createInvoice(tx: RlsTx, userId: string, input: InvoiceCre
   const amount = items ? computeItemsAmount(items) : input.amount!;
   const taxAmount = input.taxAmount ?? 0;
   const number = await claimInvoiceNumber(tx, userId, input.issueDate);
+  const requiresWithholdingCertificate = input.requiresWithholdingCertificate ?? false;
 
   const [created] = await tx
     .insert(invoices)
@@ -291,8 +321,22 @@ export async function createInvoice(tx: RlsTx, userId: string, input: InvoiceCre
       currency: input.currency ?? "COP",
       issueDate: input.issueDate,
       dueDate: input.dueDate,
+      requiresWithholdingCertificate,
     })
     .returning();
+
+  // Same Stage 3 auto-creation hook as `createCuentaDeCobro` — see that
+  // function's comment.
+  if (created && requiresWithholdingCertificate) {
+    await createWithholdingCertificateForDocument(tx, userId, {
+      projectId: created.projectId,
+      clientName: created.clientName,
+      issueDate: created.issueDate,
+      cuentaDeCobroId: null,
+      invoiceId: created.id,
+    });
+  }
+
   return created;
 }
 
@@ -312,6 +356,9 @@ export async function updateInvoice(tx: RlsTx, userId: string, id: string, input
   if (input.currency !== undefined) patch.currency = input.currency;
   if (input.issueDate !== undefined) patch.issueDate = input.issueDate;
   if (input.dueDate !== undefined) patch.dueDate = input.dueDate;
+  if (input.requiresWithholdingCertificate !== undefined) {
+    patch.requiresWithholdingCertificate = input.requiresWithholdingCertificate;
+  }
 
   let nextAmount = Number(existing.amount);
   let nextItems: FinanceLineItem[] | null = (existing.items as FinanceLineItem[] | null) ?? null;
@@ -369,11 +416,15 @@ export async function issueInvoice(tx: RlsTx, userId: string, id: string) {
   return { invoice, pdfBuffer };
 }
 
+/** Same as `finalizeCuentaDeCobroIssue`, for invoices. */
 export async function finalizeInvoiceIssue(tx: RlsTx, id: string, pdfFileKey: string) {
   const [updated] = await tx
     .update(invoices)
     .set({ status: "issued", pdfFileKey, updatedAt: new Date() })
     .where(eq(invoices.id, id))
     .returning();
+  if (updated) {
+    await createPendingPaymentForInvoice(tx, updated.userId, { id: updated.id, currency: updated.currency });
+  }
   return updated;
 }

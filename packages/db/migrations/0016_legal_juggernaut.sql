@@ -1,0 +1,2 @@
+ALTER TABLE "invoices" ADD COLUMN "requires_withholding_certificate" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "withholding_certificates" ADD COLUMN "expected_amount" numeric(14, 2);

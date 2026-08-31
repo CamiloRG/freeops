@@ -110,6 +110,19 @@ export const UPLOAD_SLOTS = {
     ] as const,
     maxSizeBytes: 10 * 1024 * 1024, // 10MB, per POST /api/v1/me/tax-info/documents
   },
+  // Withholding-certificate copies (Phase 7 Stage 3) — mirrors `taxDocument`
+  // exactly (same allow-list/size limit rationale: a scanned certificate
+  // copy is the same kind of document as a RUT/cámara de comercio scan).
+  // POST /api/v1/withholding-certificates/:id/upload.
+  withholdingCertificate: {
+    allowedMimeTypes: [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    ] as const,
+    maxSizeBytes: 10 * 1024 * 1024,
+  },
   profilePhoto: {
     allowedMimeTypes: ["image/png", "image/jpeg"] as const,
     maxSizeBytes: 5 * 1024 * 1024,

@@ -74,6 +74,7 @@ export const invoiceCreateSchema = z
     currency: z.string().trim().length(3).optional(),
     issueDate: z.string().trim().min(1, "Ingresa la fecha de emisión."),
     dueDate: z.string().trim().min(1, "Ingresa la fecha de vencimiento."),
+    requiresWithholdingCertificate: z.boolean().optional(),
   })
   .refine(hasAmountOrItems, { message: "Ingresa un valor o agrega al menos un ítem.", path: ["amount"] });
 export type InvoiceCreateInput = z.infer<typeof invoiceCreateSchema>;
@@ -89,6 +90,7 @@ export const invoiceUpdateSchema = z.object({
   currency: z.string().trim().length(3).optional(),
   issueDate: z.string().trim().min(1).optional(),
   dueDate: z.string().trim().min(1).optional(),
+  requiresWithholdingCertificate: z.boolean().optional(),
 });
 export type InvoiceUpdateInput = z.infer<typeof invoiceUpdateSchema>;
 

@@ -58,6 +58,7 @@ export function serializeInvoice(row: InvoiceRow) {
     dueDate: row.dueDate,
     status: row.status as "draft" | "issued" | "paid" | "overdue" | "cancelled",
     eInvoicingStatus: row.eInvoicingStatus as "not_applicable" | "pending" | "submitted" | "accepted" | "rejected",
+    requiresWithholdingCertificate: row.requiresWithholdingCertificate,
     hasPdf: row.pdfFileKey != null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

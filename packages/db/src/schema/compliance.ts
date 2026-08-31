@@ -36,6 +36,15 @@ export const withholdingCertificates = pgTable(
     required: boolean("required").notNull().default(true),
     status: text("status").notNull().default("pending"), // pending | received | not_applicable
     receivedAt: date("received_at"),
+    // Stage 3 (Phase 7) addition — the spec's own API contract (`GET
+    // /api/v1/withholding-certificates` response shape) includes
+    // `expectedAmount`, but this table never got the column. Freelancer-
+    // settable manually only — there is no reliable "withholding rate"
+    // computation anywhere in this app (`packages/rules-engine` is
+    // PILA-only, not DIAN retention-in-source), so this is never
+    // auto-computed/auto-derived, only ever set by the freelancer or left
+    // null by the auto-creation hook.
+    expectedAmount: numeric("expected_amount", { precision: 14, scale: 2 }),
     fileKey: text("file_key"), // uploaded copy of the certificate, once received
     ...timestamps,
     ...softDelete,

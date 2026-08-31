@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { InlineNotice } from "@/components/ui/inline-notice";
@@ -29,6 +30,7 @@ export interface InvoiceListItem {
   dueDate: string;
   status: "draft" | "issued" | "paid" | "overdue" | "cancelled";
   eInvoicingStatus: "not_applicable" | "pending" | "submitted" | "accepted" | "rejected";
+  requiresWithholdingCertificate: boolean;
   hasPdf: boolean;
   createdAt: string;
   updatedAt: string;
@@ -81,6 +83,7 @@ const emptyDraft = {
   taxAmount: "0",
   issueDate: new Date().toISOString().slice(0, 10),
   dueDate: "",
+  requiresWithholdingCertificate: false,
 };
 
 export function InvoiceList({
@@ -119,6 +122,7 @@ export function InvoiceList({
       taxAmount: draft.taxAmount ? Number(draft.taxAmount) : 0,
       issueDate: draft.issueDate,
       dueDate: draft.dueDate,
+      requiresWithholdingCertificate: draft.requiresWithholdingCertificate,
     };
     if (mode === "items") {
       const cleaned = draftItems
@@ -291,6 +295,17 @@ export function InvoiceList({
                 <Label htmlFor="inv-due">Fecha de vencimiento</Label>
                 <Input id="inv-due" type="date" value={draft.dueDate} onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))} />
               </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-tile bg-surface-sunken px-4 py-3">
+              <div>
+                <div className="text-body-sm font-medium text-ink">Requiere certificado de retención</div>
+                <div className="text-[12px] text-ink-muted">El cliente necesitará un certificado luego del pago.</div>
+              </div>
+              <Switch
+                checked={draft.requiresWithholdingCertificate}
+                onCheckedChange={(v) => setDraft((d) => ({ ...d, requiresWithholdingCertificate: v }))}
+              />
             </div>
 
             <div className="space-y-1.5">

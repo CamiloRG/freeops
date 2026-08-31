@@ -89,6 +89,12 @@ export const invoices = pgTable(
     status: text("status").notNull().default("draft"), // draft | issued | paid | overdue | cancelled
     // v2 placeholder: DIAN facturación electrónica connector.
     eInvoicingStatus: text("e_invoicing_status").notNull().default("not_applicable"),
+    // Stage 3 (Phase 7) addition, mirroring `cuentas_de_cobro`'s column of
+    // the same name exactly — the spec's own SQL only put this flag on
+    // cuentas_de_cobro, but an invoice can just as validly require a
+    // withholding certificate from a client (see `withholding-certificates`
+    // service's auto-creation hook, which reads this on both document types).
+    requiresWithholdingCertificate: boolean("requires_withholding_certificate").notNull().default(false),
     pdfFileKey: text("pdf_file_key"),
     ...timestamps,
     ...softDelete,

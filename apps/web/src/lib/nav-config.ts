@@ -63,6 +63,12 @@ export const NAV_TREE: NavSection[] = [
     children: [
       { label: "Cuentas de cobro", href: "/finance/cuentas-de-cobro", breadcrumb: "Finanzas / Cuentas de cobro" },
       { label: "Facturas", href: "/finance/invoices", breadcrumb: "Finanzas / Facturas" },
+      { label: "Pagos", href: "/finance/payments", breadcrumb: "Finanzas / Pagos" },
+      {
+        label: "Retenciones",
+        href: "/finance/withholding-certificates",
+        breadcrumb: "Finanzas / Retenciones",
+      },
     ],
   },
   {
