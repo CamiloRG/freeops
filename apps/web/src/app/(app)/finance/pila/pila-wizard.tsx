@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { InlineNotice } from "@/components/ui/inline-notice";
 import { cn } from "@/lib/utils";
 import { PILA_OPERATOR_LABEL, type PilaOperator } from "@/lib/pila/operators";
+import type { ArlRiskClass } from "@freeops/rules-engine";
 
 export interface PilaRecordItem {
   id: string;
@@ -30,10 +31,17 @@ export interface PilaRecordItem {
   periodMonth: number;
   totalIncomeBase: number;
   ibc: number;
-  healthContribution: number;
+  /** `null` (not $0) when health isn't mandatory — cotizante tipo 76 (Resolución 1529 de 2026). */
+  healthContribution: number | null;
   pensionContribution: number;
   arlContribution: number | null;
+  arlIbc: number | null;
   totalAmountOwed: number;
+  cotizanteType: "standard" | "76";
+  daysWorkedInPeriod: number | null;
+  arlRiskClass: ArlRiskClass | null;
+  compensationFundRate: number | null;
+  compensationFundContribution: number | null;
   operator: PilaOperator;
   status: "calculated" | "paid" | "overdue";
   paidAt: string | null;
@@ -47,6 +55,17 @@ interface OperatorLink {
   label: string;
   url: string;
 }
+
+/** `details` payload of the `422 { reason: "needs_part_time_info" }` response — see `@/lib/services/pila`'s `createPilaCalculation` doc comment. */
+interface PartTimeInfoNeeded {
+  reason: "needs_part_time_info";
+  cotizanteType: "76";
+  grossMonthlyIncomeCop: number;
+  pensionIbcBrackets: { daysUpTo: number; ibcFractionOfSmlmv: number }[];
+  compensationFundRateOptions: number[];
+}
+
+const ARL_RISK_CLASS_OPTIONS: ArlRiskClass[] = ["I", "II", "III", "IV", "V"];
 
 const STATUS_LABEL: Record<PilaRecordItem["status"], string> = {
   calculated: "Calculado",
@@ -105,6 +124,13 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
   const [calcError, setCalcError] = useState<string | null>(null);
   const [hasCalculated, setHasCalculated] = useState(false);
 
+  // Cotizante 76 (ingresos < 1 SMLMV) — set from a `needs_part_time_info`
+  // 422, cleared on any successful calculation or month change.
+  const [partTimeInfo, setPartTimeInfo] = useState<PartTimeInfoNeeded | null>(null);
+  const [daysWorkedInput, setDaysWorkedInput] = useState("");
+  const [arlRiskClassInput, setArlRiskClassInput] = useState<ArlRiskClass | "">("");
+  const [compensationFundRateInput, setCompensationFundRateInput] = useState("");
+
   const [operatorLinks, setOperatorLinks] = useState<OperatorLink[] | null>(null);
 
   const [confirmPaidOpen, setConfirmPaidOpen] = useState(false);
@@ -142,6 +168,13 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
     void fetchHandoff(record.id);
   }
 
+  function resetPartTimeInfoInputs() {
+    setPartTimeInfo(null);
+    setDaysWorkedInput("");
+    setArlRiskClassInput("");
+    setCompensationFundRateInput("");
+  }
+
   async function handleCalculate() {
     setLoading(true);
     setCalcError(null);
@@ -153,6 +186,7 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
     const existing = history.find((r) => r.month === month);
     if (existing) {
       applyRecord(existing);
+      resetPartTimeInfoInputs();
       setLoading(false);
       return;
     }
@@ -160,13 +194,32 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
     const res = await fetch("/api/v1/pila/calculations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month }),
+      body: JSON.stringify({
+        month,
+        // Only meaningful (and only sent) once the server has told us this
+        // month needs them — see the `needs_part_time_info` branch below.
+        ...(partTimeInfo
+          ? {
+              daysWorkedInPeriod: daysWorkedInput ? Number(daysWorkedInput) : undefined,
+              arlRiskClass: arlRiskClassInput || undefined,
+              compensationFundRate:
+                compensationFundRateInput && compensationFundRateInput !== "none"
+                  ? Number(compensationFundRateInput)
+                  : undefined,
+            }
+          : {}),
+      }),
     });
     const body = await res.json().catch(() => null);
     setLoading(false);
 
     if (res.status === 201 && body) {
       applyRecord(body);
+      resetPartTimeInfoInputs();
+      return;
+    }
+    if (res.status === 422 && body?.error?.details?.reason === "needs_part_time_info") {
+      setPartTimeInfo(body.error.details as PartTimeInfoNeeded);
       return;
     }
     if (res.status === 422) {
@@ -179,11 +232,14 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
       const listBody = await listRes.json().catch(() => null);
       if (listBody?.data?.[0]) {
         applyRecord(listBody.data[0]);
+        resetPartTimeInfoInputs();
         return;
       }
     }
     setCalcError(body?.error?.message ?? "No se pudo calcular la PILA — intenta de nuevo.");
   }
+
+  const canSubmitPartTimeInfo = !partTimeInfo || (daysWorkedInput.trim() !== "" && arlRiskClassInput !== "");
 
   async function handleRecalculate() {
     if (!current) return;
@@ -270,14 +326,73 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
               id="pila-month"
               type="month"
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
+              onChange={(e) => {
+                setMonth(e.target.value);
+                resetPartTimeInfoInputs();
+              }}
               className="w-44 font-mono text-data-mono"
             />
           </div>
-          <Button type="button" onClick={handleCalculate} disabled={loading || !month}>
+          <Button type="button" onClick={handleCalculate} disabled={loading || !month || !canSubmitPartTimeInfo}>
             {loading ? "Calculando…" : "Calcular"}
           </Button>
         </CardContent>
+
+        {partTimeInfo && (
+          <CardContent className="border-t border-line-soft pt-5">
+            <InlineNotice
+              variant="accent"
+              title="Ingresos inferiores a 1 salario mínimo — cotizante tipo 76"
+              description="Pensión y ARL siguen siendo obligatorios (con una base distinta a la habitual). Salud no es obligatoria en el régimen contributivo — puedes permanecer o ingresar al régimen subsidiado. El aporte a caja de compensación familiar es voluntario."
+              className="mb-5"
+            />
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="pila-days-worked">Días trabajados en el periodo</Label>
+                <Input
+                  id="pila-days-worked"
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={daysWorkedInput}
+                  onChange={(e) => setDaysWorkedInput(e.target.value)}
+                  className="w-40 font-mono text-data-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pila-arl-risk-class">Clase de riesgo ARL</Label>
+                <Select value={arlRiskClassInput} onValueChange={(v) => setArlRiskClassInput(v as ArlRiskClass)}>
+                  <SelectTrigger id="pila-arl-risk-class" className="w-40">
+                    <SelectValue placeholder="Selecciona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ARL_RISK_CLASS_OPTIONS.map((riskClass) => (
+                      <SelectItem key={riskClass} value={riskClass}>
+                        Clase {riskClass}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pila-comp-fund-rate">Caja de compensación (opcional)</Label>
+                <Select value={compensationFundRateInput} onValueChange={setCompensationFundRateInput}>
+                  <SelectTrigger id="pila-comp-fund-rate" className="w-48">
+                    <SelectValue placeholder="No aportar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No aportar</SelectItem>
+                    {partTimeInfo.compensationFundRateOptions.map((rate) => (
+                      <SelectItem key={rate} value={String(rate)}>
+                        {(rate * 100).toFixed(1)}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {calcError && <InlineNotice variant="danger" title={calcError} className="mb-6" />}
@@ -306,7 +421,14 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-3">
-                <span>{formatMonthLabel(current.month)}</span>
+                <span className="flex items-center gap-2">
+                  {formatMonthLabel(current.month)}
+                  {current.cotizanteType === "76" && (
+                    <span className="inline-flex items-center rounded-pill bg-accent-tint px-[10px] py-[4px] text-[11px] font-medium text-accent-press">
+                      Cotizante 76
+                    </span>
+                  )}
+                </span>
                 <span
                   className={cn(
                     "inline-flex items-center gap-1 rounded-pill px-[10px] py-[4px] text-[11px] font-medium",
@@ -322,6 +444,13 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
+              {current.cotizanteType === "76" && (
+                <p className="mb-5 text-caption text-ink-soft">
+                  {current.daysWorkedInPeriod} día{current.daysWorkedInPeriod === 1 ? "" : "s"} trabajado
+                  {current.daysWorkedInPeriod === 1 ? "" : "s"} en el periodo
+                  {current.arlRiskClass ? ` · ARL clase ${current.arlRiskClass}` : ""}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
                 <div>
                   <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
@@ -332,13 +461,19 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
                   </div>
                 </div>
                 <div>
-                  <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">IBC</div>
+                  <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+                    IBC (pensión)
+                  </div>
                   <div className="mt-[6px] font-mono text-h3 text-ink">{formatCurrency(current.ibc)}</div>
                 </div>
                 <div>
                   <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">Salud</div>
                   <div className="mt-[6px] font-mono text-body text-ink">
-                    {formatCurrency(current.healthContribution)}
+                    {current.healthContribution != null ? (
+                      formatCurrency(current.healthContribution)
+                    ) : (
+                      <span className="text-body-sm font-sans text-ink-soft">No obligatoria (régimen subsidiado)</span>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -347,6 +482,24 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
                     {formatCurrency(current.pensionContribution)}
                   </div>
                 </div>
+                {current.arlContribution != null && (
+                  <div>
+                    <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">ARL</div>
+                    <div className="mt-[6px] font-mono text-body text-ink">
+                      {formatCurrency(current.arlContribution)}
+                    </div>
+                  </div>
+                )}
+                {current.compensationFundContribution != null && (
+                  <div>
+                    <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
+                      Caja de compensación (voluntario)
+                    </div>
+                    <div className="mt-[6px] font-mono text-body text-ink">
+                      {formatCurrency(current.compensationFundContribution)}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="mt-6 border-t border-line-soft pt-5">
                 <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">
@@ -431,7 +584,14 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
                 const Icon = STATUS_ICON[item.status];
                 return (
                   <tr key={item.id} className="border-t border-line-soft hover:bg-surface-sunken">
-                    <td className="py-3 pr-4 text-ink">{formatMonthLabel(item.month)}</td>
+                    <td className="py-3 pr-4 text-ink">
+                      {formatMonthLabel(item.month)}
+                      {item.cotizanteType === "76" && (
+                        <span className="ml-2 inline-flex items-center rounded-pill bg-accent-tint px-[7px] py-[2px] text-[10px] font-medium text-accent-press">
+                          76
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-right font-mono text-data-mono text-ink">
                       {formatCurrency(item.ibc)}
                     </td>
@@ -458,6 +618,7 @@ export function PilaWizard({ initialHistory }: { initialHistory: PilaRecordItem[
                           onClick={() => {
                             setMonth(item.month);
                             applyRecord(item);
+                            resetPartTimeInfoInputs();
                             setHasCalculated(true);
                           }}
                         >

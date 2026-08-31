@@ -1,9 +1,9 @@
 /**
  * GET/POST /api/v1/pila/calculations — app_spec.md § "API Contracts &
  * Integrations" → "13. PILA calculation (+ guided hand-off)". See
- * `@/lib/services/pila`'s doc comment for the income-base rule, the
- * ARL-out-of-scope decision, and the real `calculated|paid|overdue`
- * status lifecycle this app actually uses.
+ * `@/lib/services/pila`'s doc comment for the income-base rule, the ARL
+ * opt-in decision, the cotizante-tipo-76 regime, and the real
+ * `calculated|paid|overdue` status lifecycle this app actually uses.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { withUserDb } from "@/lib/db/rls";

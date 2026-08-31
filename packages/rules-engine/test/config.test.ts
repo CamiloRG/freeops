@@ -59,6 +59,36 @@ describe("parseRegulatoryConfigPayload", () => {
     );
   });
 
+  it("accepts a payload with a well-formed partTimeIndependentRegime block", () => {
+    const withRegime = {
+      ...VALID_CONFIG,
+      partTimeIndependentRegime: {
+        pensionIbcBrackets: [
+          { daysUpTo: 7, ibcFractionOfSmlmv: 0.25 },
+          { daysUpTo: 14, ibcFractionOfSmlmv: 0.5 },
+          { daysUpTo: 21, ibcFractionOfSmlmv: 0.75 },
+          { daysUpTo: 30, ibcFractionOfSmlmv: 1 },
+        ],
+        arlIbcSmlmvMultiple: 1,
+        compensationFundRateOptions: [0.006, 0.02],
+      },
+    };
+    const parsed = parseRegulatoryConfigPayload(withRegime);
+    expect(parsed.partTimeIndependentRegime?.compensationFundRateOptions).toEqual([0.006, 0.02]);
+  });
+
+  it("rejects a partTimeIndependentRegime whose pensionIbcBrackets never reaches day 30", () => {
+    const malformed = {
+      ...VALID_CONFIG,
+      partTimeIndependentRegime: {
+        pensionIbcBrackets: [{ daysUpTo: 21, ibcFractionOfSmlmv: 0.75 }],
+        arlIbcSmlmvMultiple: 1,
+        compensationFundRateOptions: [0.006],
+      },
+    };
+    expect(() => parseRegulatoryConfigPayload(malformed)).toThrow(InvalidRegulatoryConfigError);
+  });
+
   it("rejects null/undefined/non-object input", () => {
     expect(() => parseRegulatoryConfigPayload(null)).toThrow(
       InvalidRegulatoryConfigError

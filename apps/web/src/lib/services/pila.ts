@@ -18,9 +18,22 @@
  * app_spec.md's explicit "never show $0 as if it were a computed answer"
  * requirement).
  *
- * ARL is out of scope for this stage (see `packages/rules-engine/src/
- * pila.ts`'s own doc comment) — `arlRiskClass` is never passed to
- * `calculatePila`, so `arlContribution` always comes back `null` here.
+ * ARL stays opt-in/no-UI for the standard regime (see
+ * `packages/rules-engine/src/pila.ts`'s own doc comment on why — no
+ * risk-class field anywhere else in this app's schema). Cotizante tipo 76
+ * (Resolución 1529 de 2026, periods from 2026-08 — see below) is the one
+ * exception: ARL is legally mandatory there, so this service requires
+ * `arlRiskClass` before calculating under that regime.
+ *
+ * Cotizante tipo 76 ("Trabajador de tiempo parcial Independiente"): when
+ * the summed income for a period is below 1 SMLMV AND the resolved
+ * regulatory config for that period declares `partTimeIndependentRegime`,
+ * `createPilaCalculation` requires `daysWorkedInPeriod` + `arlRiskClass` in
+ * the input — if either is missing, it throws a `422` carrying
+ * `details: { reason: "needs_part_time_info", ... }` (never creates
+ * anything) so the wizard can reveal those fields and resubmit. See
+ * `@freeops/rules-engine`'s `calculatePila` doc comment for the full
+ * regime rules (confirmed with the FreeOps team, 2026-08-31).
  *
  * Status lifecycle: this app's real schema enum is `calculated | paid |
  * overdue` (NOT the spec prose's `calculated|handed_off|confirmed_paid`
@@ -35,12 +48,14 @@
  * Never trust a client-computed figure (app_spec.md's explicit financial-
  * accuracy rule) — the income sum, IBC, and every contribution figure are
  * always recomputed server-side in `createPilaCalculation`/
- * `recalculatePilaCalculation`; a client only ever posts `{ month }`.
+ * `recalculatePilaCalculation`; a client only ever posts `{ month, ... }`
+ * (see the cotizante-76 note above for the 3 extra optional fields —
+ * still raw declared facts, never a computed figure).
  */
 import { and, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { cuentasDeCobro, invoices, pilaRecords } from "@freeops/db/schema";
 import type { RlsTx } from "@freeops/db/rls-client";
-import { resolveActiveRegulatoryConfig, calculatePila } from "@freeops/rules-engine";
+import { resolveActiveRegulatoryConfig, calculatePila, type ArlRiskClass, type CalculatePilaResult } from "@freeops/rules-engine";
 import { ApiError } from "@/lib/api/errors";
 import type { PilaCalculationCreateInput, PilaConfirmPaidInput } from "@/lib/validation/pila";
 
@@ -49,6 +64,33 @@ const ELIGIBLE_DOCUMENT_STATUSES = ["issued", "paid", "overdue"] as const;
 
 function toMoneyString(value: number): string {
   return value.toFixed(2);
+}
+
+function moneyOrNull(value: number | null): string | null {
+  return value != null ? toMoneyString(value) : null;
+}
+
+/** Matches `compensation_fund_rate numeric(6,4)`. */
+function toRateString(value: number): string {
+  return value.toFixed(4);
+}
+
+/**
+ * Maps a `calculatePila` result onto the subset of `pila_records` columns
+ * both `createPilaCalculation` and `recalculatePilaCalculation` write —
+ * shared so the two never drift out of sync on which fields go where.
+ */
+function buildPilaResultPatch(result: CalculatePilaResult) {
+  return {
+    ibc: toMoneyString(result.ibc),
+    arlIbc: moneyOrNull(result.arlIbc),
+    healthContribution: moneyOrNull(result.healthContribution),
+    pensionContribution: toMoneyString(result.pensionContribution),
+    arlContribution: moneyOrNull(result.arlContribution),
+    compensationFundContribution: moneyOrNull(result.compensationFundContribution),
+    totalAmountOwed: toMoneyString(result.totalAmountOwed),
+    cotizanteType: result.cotizanteType,
+  };
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -189,7 +231,33 @@ export async function createPilaCalculation(tx: RlsTx, userId: string, input: Pi
     country: "CO",
     forDate: new Date(Date.UTC(periodYear, periodMonth - 1, 1)),
   });
-  const result = calculatePila({ grossMonthlyIncomeCop, config: resolved.config });
+
+  const regime = resolved.config.partTimeIndependentRegime;
+  const needsPartTimeInfo =
+    grossMonthlyIncomeCop < resolved.config.smlmv &&
+    regime !== undefined &&
+    (input.daysWorkedInPeriod === undefined || input.arlRiskClass === undefined);
+  if (needsPartTimeInfo) {
+    throw new ApiError(
+      "UNPROCESSABLE_ENTITY",
+      `Ingresos de ${formatPeriod(periodYear, periodMonth)} inferiores a 1 SMLMV — se requieren días trabajados y clase de riesgo ARL para calcular bajo el cotizante tipo 76.`,
+      {
+        reason: "needs_part_time_info",
+        cotizanteType: "76",
+        grossMonthlyIncomeCop,
+        pensionIbcBrackets: regime!.pensionIbcBrackets,
+        compensationFundRateOptions: regime!.compensationFundRateOptions,
+      }
+    );
+  }
+
+  const result = calculatePila({
+    grossMonthlyIncomeCop,
+    config: resolved.config,
+    daysWorkedInPeriod: input.daysWorkedInPeriod,
+    arlRiskClass: input.arlRiskClass,
+    compensationFundRate: input.compensationFundRate,
+  });
 
   try {
     const [created] = await tx
@@ -199,11 +267,13 @@ export async function createPilaCalculation(tx: RlsTx, userId: string, input: Pi
         periodYear,
         periodMonth,
         totalIncomeBase: toMoneyString(grossMonthlyIncomeCop),
-        ibc: toMoneyString(result.ibc),
-        healthContribution: toMoneyString(result.healthContribution),
-        pensionContribution: toMoneyString(result.pensionContribution),
-        arlContribution: result.arlContribution != null ? toMoneyString(result.arlContribution) : null,
-        totalAmountOwed: toMoneyString(result.totalAmountOwed),
+        ...buildPilaResultPatch(result),
+        daysWorkedInPeriod: result.cotizanteType === "76" ? input.daysWorkedInPeriod ?? null : null,
+        arlRiskClass: input.arlRiskClass ?? null,
+        compensationFundRate:
+          result.compensationFundContribution != null && input.compensationFundRate !== undefined
+            ? toRateString(input.compensationFundRate)
+            : null,
         regulatoryConfigVersionId: resolved.id,
         status: "calculated",
       })
@@ -246,17 +316,53 @@ export async function recalculatePilaCalculation(tx: RlsTx, userId: string, id: 
     country: "CO",
     forDate: new Date(Date.UTC(existing.periodYear, existing.periodMonth - 1, 1)),
   });
-  const result = calculatePila({ grossMonthlyIncomeCop, config: resolved.config });
+
+  // Reuses whatever days-worked/ARL-risk-class/caja-rate this record was
+  // originally created with (never re-asks the client — recalculate takes
+  // no body) — see this file's doc comment. If income has since crossed
+  // back above 1 SMLMV, or the regime is no longer declared, `calculatePila`
+  // simply falls back to the standard branch on its own; if it's now BELOW
+  // 1 SMLMV for the first time (e.g. invoices were edited/removed) and the
+  // record was never given days-worked/risk-class, the same
+  // `needs_part_time_info` gate as `createPilaCalculation` applies —
+  // recalculate can't silently invent those facts either.
+  const regime = resolved.config.partTimeIndependentRegime;
+  const needsPartTimeInfo =
+    grossMonthlyIncomeCop < resolved.config.smlmv &&
+    regime !== undefined &&
+    (existing.daysWorkedInPeriod == null || existing.arlRiskClass == null);
+  if (needsPartTimeInfo) {
+    throw new ApiError(
+      "UNPROCESSABLE_ENTITY",
+      `Ingresos de ${formatPeriod(existing.periodYear, existing.periodMonth)} ahora inferiores a 1 SMLMV — este cálculo no tiene días trabajados ni clase de riesgo ARL registrados para el cotizante tipo 76. Elimínalo y créalo de nuevo con esa información.`,
+      {
+        reason: "needs_part_time_info",
+        cotizanteType: "76",
+        grossMonthlyIncomeCop,
+        pensionIbcBrackets: regime!.pensionIbcBrackets,
+        compensationFundRateOptions: regime!.compensationFundRateOptions,
+      }
+    );
+  }
+
+  const result = calculatePila({
+    grossMonthlyIncomeCop,
+    config: resolved.config,
+    daysWorkedInPeriod: existing.daysWorkedInPeriod ?? undefined,
+    arlRiskClass: (existing.arlRiskClass as ArlRiskClass | null) ?? undefined,
+    compensationFundRate: existing.compensationFundRate != null ? Number(existing.compensationFundRate) : undefined,
+  });
 
   const [updated] = await tx
     .update(pilaRecords)
     .set({
       totalIncomeBase: toMoneyString(grossMonthlyIncomeCop),
-      ibc: toMoneyString(result.ibc),
-      healthContribution: toMoneyString(result.healthContribution),
-      pensionContribution: toMoneyString(result.pensionContribution),
-      arlContribution: result.arlContribution != null ? toMoneyString(result.arlContribution) : null,
-      totalAmountOwed: toMoneyString(result.totalAmountOwed),
+      ...buildPilaResultPatch(result),
+      // Clear stale 76-only facts if this recalculation fell back to the
+      // standard regime (e.g. income rose back above 1 SMLMV) — never show
+      // a leftover "days worked" on a standard-regime record.
+      daysWorkedInPeriod: result.cotizanteType === "76" ? existing.daysWorkedInPeriod : null,
+      compensationFundRate: result.compensationFundContribution != null ? existing.compensationFundRate : null,
       regulatoryConfigVersionId: resolved.id,
       updatedAt: new Date(),
     })

@@ -47,14 +47,67 @@ export const regulatoryConfigPayloadSchema = z.object({
   }),
   /** Unidad de Valor Tributario, in COP, for the period (DIAN thresholds). */
   uvtValue: z.number().positive(),
+  /**
+   * Optional "cotizante tipo 76" regime — Resolución 1529 de 2026 (MinSalud,
+   * 24-jul-2026), created for independent workers earning below 1 SMLMV who
+   * worked less than a full month, effective for periods from 2026-08
+   * onward. Its presence on a given regulatory-config version is exactly
+   * what gates whether `calculatePila` uses this regime for that period —
+   * an older version with this field absent keeps producing the pre-76
+   * behavior (IBC floored at 1 SMLMV) for its own period, which is the
+   * legally correct historical result, not a bug. Confirmed with the
+   * FreeOps team (2026-08-31): pension is always mandatory here (IBC by
+   * days-worked bracket), ARL is always mandatory at a full-SMLMV/30-day
+   * IBC regardless of days actually worked, health is not mandatory in the
+   * contributory regime, and caja de compensación familiar is voluntary.
+   */
+  partTimeIndependentRegime: z
+    .object({
+      /**
+       * IBC for pension, as a fraction of SMLMV, keyed by the upper bound
+       * (inclusive) of days worked in the period. Must be sorted ascending
+       * by `daysUpTo` and its last entry must cover day 30. Resolución
+       * 1529/2026: 1-7d→1/4, 8-14d→2/4, 15-21d→3/4, 22-30d→1 SMLMV.
+       */
+      pensionIbcBrackets: z
+        .array(
+          z.object({
+            daysUpTo: z.number().int().positive().max(31),
+            ibcFractionOfSmlmv: z.number().positive().max(1),
+          })
+        )
+        .min(1),
+      /**
+       * ARL IBC, as a multiple of SMLMV — always a full month (1 SMLMV,
+       * i.e. `1`) regardless of `daysWorkedInPeriod`, per the confirmed
+       * rule above. Kept as config (not hardcoded `1`) so a future
+       * regulatory change doesn't require a code change.
+       */
+      arlIbcSmlmvMultiple: z.number().positive(),
+      /** Voluntary caja de compensación familiar rates the freelancer may opt into (fraction of the pension IBC). */
+      compensationFundRateOptions: z.array(z.number().positive().max(1)).min(1),
+    })
+    .optional(),
 })
   .strict()
   .refine((cfg) => cfg.ibcCeilingSmlmv >= cfg.ibcFloorSmlmv, {
     message: "ibcCeilingSmlmv must be >= ibcFloorSmlmv",
     path: ["ibcCeilingSmlmv"],
-  });
+  })
+  .refine(
+    (cfg) =>
+      !cfg.partTimeIndependentRegime ||
+      cfg.partTimeIndependentRegime.pensionIbcBrackets.some((b) => b.daysUpTo >= 30),
+    {
+      message: "partTimeIndependentRegime.pensionIbcBrackets must cover up to day 30",
+      path: ["partTimeIndependentRegime", "pensionIbcBrackets"],
+    }
+  );
 
 export type RegulatoryConfigPayload = z.infer<typeof regulatoryConfigPayloadSchema>;
+
+/** The "cotizante tipo 76" regime block — see its field on `RegulatoryConfigPayload` above. */
+export type PartTimeIndependentRegime = NonNullable<RegulatoryConfigPayload["partTimeIndependentRegime"]>;
 
 /** Thrown when a `regulatory_config_versions.config` row fails validation. */
 export class InvalidRegulatoryConfigError extends Error {

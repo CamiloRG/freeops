@@ -1,0 +1,32 @@
+{
+  "country": "CO",
+  "effectiveFrom": "2026-08-01",
+  "effectiveTo": null,
+  "config": {
+    "smlmv": 1750905,
+    "uvtValue": 52374,
+    "ibcMinPct": 0.40,
+    "ibcFloorSmlmv": 1,
+    "ibcCeilingSmlmv": 25,
+    "healthPct": 0.125,
+    "pensionPct": 0.16,
+    "arlPctByClass": {
+      "I": 0.00522,
+      "II": 0.01044,
+      "III": 0.02436,
+      "IV": 0.0435,
+      "V": 0.0696
+    },
+    "partTimeIndependentRegime": {
+      "pensionIbcBrackets": [
+        { "daysUpTo": 7, "ibcFractionOfSmlmv": 0.25 },
+        { "daysUpTo": 14, "ibcFractionOfSmlmv": 0.50 },
+        { "daysUpTo": 21, "ibcFractionOfSmlmv": 0.75 },
+        { "daysUpTo": 30, "ibcFractionOfSmlmv": 1.00 }
+      ],
+      "arlIbcSmlmvMultiple": 1,
+      "compensationFundRateOptions": [0.006, 0.02]
+    }
+  },
+  "sourceReference": "Resolución 1529 de 2026 (Ministerio de Salud y Protección Social, 24 de julio de 2026) crea el cotizante tipo 76 'Trabajador de tiempo parcial Independiente' en la PILA, para independientes con ingresos inferiores a 1 SMLMV que laboran periodos menores a un mes. Vigente desde el 1 de septiembre de 2026, aplicable a partir del periodo de aportes de agosto de 2026 (primer mes reportado bajo el nuevo esquema). Pensión: obligatoria, IBC por tramos según días trabajados en el periodo (1-7 días = 1/4 SMLMV, 8-14 = 2/4, 15-21 = 3/4, 22-30 = 1 SMLMV completo). ARL: obligatoria, IBC siempre de 1 SMLMV/30 días, independientemente del número real de días trabajados. Salud: no obligatoria en régimen contributivo bajo este tipo de cotizante — el trabajador puede permanecer o ingresar al régimen subsidiado. Aportes a caja de compensación familiar: voluntarios, tasa 0.6% o 2% a elección del trabajador. Obligatoriedad de pensión y ARL confirmada directamente por el equipo de FreeOps (2026-08-31); resto de los hechos verificados vía prensa especializada (El Tiempo, Infobae, ABC Economía, consultorsalud.com) citando la resolución — pendiente de confirmación contra el texto íntegro de la Resolución 1529/2026 antes de tratarse como definitivo en un contexto de asesoría formal. SMLMV/UVT 2026 sin cambio frente a la versión de enero (Decretos 1469/1470 de 2025; DIAN Resolución 000238 de 2025)."
+}

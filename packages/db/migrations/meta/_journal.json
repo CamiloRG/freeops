@@ -134,6 +134,20 @@
       "when": 1788148542157,
       "tag": "0018_banking_multi_account",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788182917872,
+      "tag": "0019_pila_cotizante_76_and_regulatory_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788182918872,
+      "tag": "0020_regulatory_config_alert_trigger",
+      "breakpoints": true
     }
   ]
 }

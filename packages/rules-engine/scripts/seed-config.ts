@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { config as loadEnv } from "dotenv";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lt } from "drizzle-orm";
 import { getDb, regulatoryConfigVersions } from "@freeops/db";
 import { parseRegulatoryConfigPayload } from "../src/config";
 
@@ -38,7 +38,7 @@ interface SeedFile {
   sourceReference: string;
 }
 
-const SEED_FILES = ["co-2026-01.json"];
+const SEED_FILES = ["co-2026-01.json", "co-2026-08.json"];
 
 async function seedOne(fileName: string): Promise<void> {
   const filePath = join(__dirname, "..", "config", fileName);
@@ -83,6 +83,30 @@ async function seedOne(fileName: string): Promise<void> {
   console.log(
     `[inserted] ${fileName}: regulatory_config_versions row created for country=${seed.country} effectiveFrom=${seed.effectiveFrom} (id=${inserted.id})`
   );
+
+  // Keep the table well-formed for `resolveActiveRegulatoryConfig`'s own
+  // assumption ("should not happen for well-formed data" that two rows'
+  // windows overlap): close out any earlier open-ended row for the same
+  // country now that this newer one exists, rather than leaving two
+  // `effectiveTo IS NULL` rows around and relying on ORDER BY to pick the
+  // right one by luck.
+  const closed = await db
+    .update(regulatoryConfigVersions)
+    .set({ effectiveTo: seed.effectiveFrom })
+    .where(
+      and(
+        eq(regulatoryConfigVersions.country, seed.country),
+        isNull(regulatoryConfigVersions.effectiveTo),
+        lt(regulatoryConfigVersions.effectiveFrom, seed.effectiveFrom)
+      )
+    )
+    .returning({ id: regulatoryConfigVersions.id, effectiveFrom: regulatoryConfigVersions.effectiveFrom });
+
+  for (const row of closed) {
+    console.log(
+      `[closed] country=${seed.country} effectiveFrom=${row.effectiveFrom} (id=${row.id}) → effectiveTo=${seed.effectiveFrom}`
+    );
+  }
 }
 
 async function main(): Promise<void> {

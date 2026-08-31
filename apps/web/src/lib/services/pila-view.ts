@@ -4,10 +4,16 @@
  * `@/lib/services/finance-view`/`@/lib/services/payments-view` already use.
  */
 import type { pilaRecords } from "@freeops/db/schema";
+import type { ArlRiskClass, PilaCotizanteType } from "@freeops/rules-engine";
 import { formatPeriod } from "@/lib/services/pila";
 import { PILA_OPERATOR_LINKS, type PilaOperator } from "@/lib/pila/operators";
 
 type PilaRecordRow = typeof pilaRecords.$inferSelect;
+
+/** `Number(null)` is `0` — never use it on a column that can legitimately be `null` ("not applicable"), or a real absence silently renders as a fabricated $0. */
+function numberOrNull(value: string | null): number | null {
+  return value != null ? Number(value) : null;
+}
 
 export function serializePilaRecord(row: PilaRecordRow) {
   return {
@@ -17,10 +23,17 @@ export function serializePilaRecord(row: PilaRecordRow) {
     periodMonth: row.periodMonth,
     totalIncomeBase: Number(row.totalIncomeBase),
     ibc: Number(row.ibc),
-    healthContribution: Number(row.healthContribution),
+    // `null` (not $0) whenever health isn't mandatory — cotizante tipo 76 (Resolución 1529 de 2026).
+    healthContribution: numberOrNull(row.healthContribution),
     pensionContribution: Number(row.pensionContribution),
-    arlContribution: row.arlContribution != null ? Number(row.arlContribution) : null,
+    arlContribution: numberOrNull(row.arlContribution),
+    arlIbc: numberOrNull(row.arlIbc),
     totalAmountOwed: Number(row.totalAmountOwed),
+    cotizanteType: row.cotizanteType as PilaCotizanteType,
+    daysWorkedInPeriod: row.daysWorkedInPeriod,
+    arlRiskClass: row.arlRiskClass as ArlRiskClass | null,
+    compensationFundRate: numberOrNull(row.compensationFundRate),
+    compensationFundContribution: numberOrNull(row.compensationFundContribution),
     operator: row.operator as PilaOperator,
     status: row.status as "calculated" | "paid" | "overdue",
     paidAt: row.paidAt,

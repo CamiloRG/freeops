@@ -1,5 +1,6 @@
 import { BreadcrumbHeader } from "@/components/layout/breadcrumb-header";
 import { StatTile, StatTileGrid } from "@/components/admin/stat-tile";
+import { RegulatoryAlertsPanel } from "@/components/admin/regulatory-alerts-panel";
 import {
   getDailyAiCost,
   getHeaviestQueries,
@@ -7,6 +8,7 @@ import {
   getTopAiUsersThisMonth,
 } from "@/lib/admin/ops-metrics";
 import { getPlatformSummary } from "@/lib/admin/platform-metrics";
+import { getOpenRegulatoryConfigAlerts } from "@/lib/admin/regulatory-alerts";
 
 export const runtime = "nodejs";
 
@@ -34,7 +36,8 @@ function formatPct(value: number): string {
  * fetched client-side.
  */
 export default async function AdminOperationsPage() {
-  const [platform, summary, dailyCost, topUsers, heaviestQueries] = await Promise.all([
+  const [regulatoryAlerts, platform, summary, dailyCost, topUsers, heaviestQueries] = await Promise.all([
+    getOpenRegulatoryConfigAlerts(),
     getPlatformSummary(),
     getMonthlyAiSummary(),
     getDailyAiCost(14),
@@ -59,6 +62,19 @@ export default async function AdminOperationsPage() {
       <p className="mt-2 max-w-[560px] text-body text-ink-soft">
         Uso de la plataforma, costo real de IA y señal de calibración de cuotas — solo lo que ya está instrumentado.
       </p>
+
+      <div className="mt-10">
+        <RegulatoryAlertsPanel
+          initialAlerts={regulatoryAlerts.map((a) => ({
+            id: a.id,
+            country: a.country,
+            effectiveFrom: a.effectiveFrom,
+            sourceReference: a.sourceReference,
+            createdAt: a.createdAt.toISOString(),
+            config: a.config,
+          }))}
+        />
+      </div>
 
       <section className="mt-12">
         <div className="font-mono text-label-mono tracking-[0.06em] text-ink-muted uppercase">Plataforma</div>

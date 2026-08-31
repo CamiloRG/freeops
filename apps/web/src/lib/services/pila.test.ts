@@ -40,6 +40,24 @@ const REGULATORY_CONFIG_ROW = {
   sourceReference: "test fixture",
 };
 
+const PART_TIME_REGIME_CONFIG_ROW = {
+  ...REGULATORY_CONFIG_ROW,
+  id: "config-v2-part-time",
+  config: {
+    ...VALID_CONFIG_PAYLOAD,
+    partTimeIndependentRegime: {
+      pensionIbcBrackets: [
+        { daysUpTo: 7, ibcFractionOfSmlmv: 0.25 },
+        { daysUpTo: 14, ibcFractionOfSmlmv: 0.5 },
+        { daysUpTo: 21, ibcFractionOfSmlmv: 0.75 },
+        { daysUpTo: 30, ibcFractionOfSmlmv: 1 },
+      ],
+      arlIbcSmlmvMultiple: 1,
+      compensationFundRateOptions: [0.006, 0.02],
+    },
+  },
+};
+
 interface FakeTxOptions {
   existingRecord?: unknown;
   cdcRows?: { amount: string }[];
@@ -215,6 +233,52 @@ describe("createPilaCalculation", () => {
       code: "CONFLICT",
     });
   });
+
+  describe("cotizante tipo 76 (income below 1 SMLMV, config declares partTimeIndependentRegime)", () => {
+    it("throws a needs_part_time_info 422 (creates nothing) when daysWorkedInPeriod/arlRiskClass are missing", async () => {
+      const tx = makeFakeTx({
+        cdcRows: [{ amount: "500000.00" }], // well below the 1,423,500 SMLMV fixture
+        regulatoryConfigRow: PART_TIME_REGIME_CONFIG_ROW,
+      });
+
+      await expect(createPilaCalculation(tx, "user-1", { month: "2026-08" })).rejects.toMatchObject({
+        code: "UNPROCESSABLE_ENTITY",
+        details: expect.objectContaining({ reason: "needs_part_time_info", cotizanteType: "76" }),
+      });
+    });
+
+    it("computes and persists the 76 regime once daysWorkedInPeriod/arlRiskClass are supplied", async () => {
+      const tx = makeFakeTx({
+        cdcRows: [{ amount: "500000.00" }],
+        regulatoryConfigRow: PART_TIME_REGIME_CONFIG_ROW,
+      });
+
+      const created = (await createPilaCalculation(tx, "user-1", {
+        month: "2026-08",
+        daysWorkedInPeriod: 8,
+        arlRiskClass: "I",
+        compensationFundRate: 0.02,
+      })) as Record<string, unknown>;
+
+      expect(created.cotizanteType).toBe("76");
+      expect(created.ibc).toBe((0.5 * VALID_CONFIG_PAYLOAD.smlmv).toFixed(2)); // 8 days -> 2nd bracket
+      expect(created.healthContribution).toBeNull();
+      expect(created.arlIbc).toBe(VALID_CONFIG_PAYLOAD.smlmv.toFixed(2));
+      expect(created.daysWorkedInPeriod).toBe(8);
+      expect(created.arlRiskClass).toBe("I");
+      expect(created.compensationFundContribution).not.toBeNull();
+    });
+
+    it("does not require part-time info when income is at/above 1 SMLMV, even under the part-time-regime config", async () => {
+      const tx = makeFakeTx({
+        cdcRows: [{ amount: "5000000.00" }],
+        regulatoryConfigRow: PART_TIME_REGIME_CONFIG_ROW,
+      });
+
+      const created = (await createPilaCalculation(tx, "user-1", { month: "2026-08" })) as Record<string, unknown>;
+      expect(created.cotizanteType).toBe("standard");
+    });
+  });
 });
 
 describe("recalculatePilaCalculation", () => {
@@ -245,6 +309,42 @@ describe("recalculatePilaCalculation", () => {
     const updated = (await recalculatePilaCalculation(tx, "user-1", "rec-1")) as Record<string, unknown>;
     expect(updated.totalIncomeBase).toBe("4000000.00");
     expect(updated.regulatoryConfigVersionId).toBe(REGULATORY_CONFIG_ROW.id);
+  });
+
+  it("reuses the record's stored daysWorkedInPeriod/arlRiskClass for a 76-regime recalculation", async () => {
+    const tx = makeFakeTx({
+      existingRecord: {
+        id: "rec-1",
+        periodYear: 2026,
+        periodMonth: 8,
+        status: "calculated",
+        daysWorkedInPeriod: 14,
+        arlRiskClass: "II",
+        compensationFundRate: "0.0200",
+      },
+      cdcRows: [{ amount: "500000.00" }],
+      invoiceRows: [],
+      regulatoryConfigRow: PART_TIME_REGIME_CONFIG_ROW,
+      recordForUpdate: { id: "rec-1" },
+    });
+
+    const updated = (await recalculatePilaCalculation(tx, "user-1", "rec-1")) as Record<string, unknown>;
+    expect(updated.cotizanteType).toBe("76");
+    expect(updated.ibc).toBe((0.5 * VALID_CONFIG_PAYLOAD.smlmv).toFixed(2)); // 14 days -> 2nd bracket
+  });
+
+  it("throws needs_part_time_info on recalculate when income newly dropped below 1 SMLMV without stored days/risk-class", async () => {
+    const tx = makeFakeTx({
+      existingRecord: { id: "rec-1", periodYear: 2026, periodMonth: 8, status: "calculated" },
+      cdcRows: [{ amount: "500000.00" }],
+      invoiceRows: [],
+      regulatoryConfigRow: PART_TIME_REGIME_CONFIG_ROW,
+    });
+
+    await expect(recalculatePilaCalculation(tx, "user-1", "rec-1")).rejects.toMatchObject({
+      code: "UNPROCESSABLE_ENTITY",
+      details: expect.objectContaining({ reason: "needs_part_time_info" }),
+    });
   });
 });
 

@@ -79,6 +79,40 @@ export const regulatoryConfigVersions = pgTable(
   (table) => [index("idx_regulatory_config_country_effective").on(table.country, table.effectiveFrom)]
 );
 
+/**
+ * Admin-facing "new/updated normativa needs human review" alert queue.
+ * Every row is created by an `AFTER INSERT` trigger on
+ * `regulatory_config_versions` (migration `0020` — see that file's
+ * comment), never by application code directly, so it's impossible for
+ * any insertion path (today's `seed-config.ts`, a future admin-authored
+ * insert) to add a regulatory config version without also raising an
+ * alert. The `/admin` dashboard surfaces open rows with top priority; a
+ * platform admin acknowledging one is the "human in the loop" this table
+ * exists for. Same "RLS enabled, zero policies" pattern as
+ * `platform_admins` — only `getDb()` (admin/background-job client) may
+ * read or write this table.
+ */
+export const regulatoryConfigAlerts = pgTable(
+  "regulatory_config_alerts",
+  {
+    id: idColumn(),
+    regulatoryConfigVersionId: uuid("regulatory_config_version_id")
+      .notNull()
+      .references(() => regulatoryConfigVersions.id, { onDelete: "cascade" }),
+    country: text("country").notNull(),
+    effectiveFrom: date("effective_from").notNull(),
+    sourceReference: text("source_reference"),
+    status: text("status").notNull().default("open"), // open | acknowledged
+    acknowledgedByUserId: uuid("acknowledged_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_regulatory_config_alerts_status").on(table.status, table.createdAt),
+    check("regulatory_config_alerts_status_check", sql`${table.status} in ('open','acknowledged')`),
+  ]
+);
+
 export const pilaRecords = pgTable(
   "pila_records",
   {
@@ -90,11 +124,47 @@ export const pilaRecords = pgTable(
     periodMonth: integer("period_month").notNull(),
     // Sum of that month's cuentas de cobro/invoices used in calc.
     totalIncomeBase: numeric("total_income_base", { precision: 14, scale: 2 }).notNull(),
-    ibc: numeric("ibc", { precision: 14, scale: 2 }).notNull(), // contribution base income
-    healthContribution: numeric("health_contribution", { precision: 14, scale: 2 }).notNull(),
+    ibc: numeric("ibc", { precision: 14, scale: 2 }).notNull(), // contribution base income (pension IBC under cotizante 76)
+    // Nullable since Resolución 1529/2026 (cotizante tipo 76 — see below):
+    // health isn't mandatory in the contributory regime for that cotizante
+    // type, and `null` here means exactly that ("not applicable"), never a
+    // fabricated $0 — same principle this table's service layer already
+    // applies to "no income this month" (see `@/lib/services/pila`'s doc
+    // comment).
+    healthContribution: numeric("health_contribution", { precision: 14, scale: 2 }),
     pensionContribution: numeric("pension_contribution", { precision: 14, scale: 2 }).notNull(),
     arlContribution: numeric("arl_contribution", { precision: 14, scale: 2 }),
+    // Cotizante tipo 76 addition: ARL's own base income, only ever
+    // different from `ibc` under that regime (always a full-SMLMV/30-day
+    // IBC there, regardless of days actually worked) — null whenever
+    // `arlContribution` is null, or under the standard regime (where ARL
+    // shares `ibc`).
+    arlIbc: numeric("arl_ibc", { precision: 14, scale: 2 }),
     totalAmountOwed: numeric("total_amount_owed", { precision: 14, scale: 2 }).notNull(),
+    // Cotizante tipo 76 addition (Resolución 1529 de 2026, MinSalud —
+    // "Trabajador de tiempo parcial Independiente", periods from 2026-08):
+    // which cotizante type this calculation used. Drives which of the
+    // fields above are populated — see `@freeops/rules-engine`'s
+    // `calculatePila` doc comment for the full regime rules.
+    cotizanteType: text("cotizante_type").notNull().default("standard"), // standard | 76
+    // Only set (and only meaningful) when `cotizanteType = '76'` — the
+    // freelancer-declared number of days actually worked in the period,
+    // which determines the pension IBC bracket. Persisted (not just used
+    // transiently) so `recalculatePilaCalculation` doesn't need the
+    // freelancer to re-enter it every time.
+    daysWorkedInPeriod: integer("days_worked_in_period"),
+    // Freelancer-declared ARL risk class (Decreto 1772 de 1994). Mandatory
+    // input under cotizante 76 (enforced in `@/lib/services/pila`, not
+    // here); still optional/no-UI under the standard regime — see
+    // `packages/rules-engine/src/pila.ts`'s own doc comment on why ARL
+    // stays opt-in there (no risk-class capture anywhere else in this
+    // app yet).
+    arlRiskClass: text("arl_risk_class"), // I | II | III | IV | V
+    // Voluntary caja de compensación familiar contribution — only
+    // possible under cotizante 76. Both null when the freelancer didn't
+    // opt in (the default — never assumed).
+    compensationFundRate: numeric("compensation_fund_rate", { precision: 6, scale: 4 }),
+    compensationFundContribution: numeric("compensation_fund_contribution", { precision: 14, scale: 2 }),
     operator: text("operator").notNull().default("other"), // miplanilla | soi | aportes_en_linea | simple | other
     // Which rate version produced this figure.
     regulatoryConfigVersionId: uuid("regulatory_config_version_id").references(
@@ -125,6 +195,15 @@ export const pilaRecords = pgTable(
       sql`${table.operator} in ('miplanilla','soi','aportes_en_linea','simple','other')`
     ),
     check("pila_records_status_check", sql`${table.status} in ('calculated','paid','overdue')`),
+    check("pila_records_cotizante_type_check", sql`${table.cotizanteType} in ('standard','76')`),
+    check(
+      "pila_records_days_worked_check",
+      sql`${table.daysWorkedInPeriod} is null or ${table.daysWorkedInPeriod} between 1 and 30`
+    ),
+    check(
+      "pila_records_arl_risk_class_check",
+      sql`${table.arlRiskClass} is null or ${table.arlRiskClass} in ('I','II','III','IV','V')`
+    ),
   ]
 );
 
