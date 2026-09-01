@@ -1,0 +1,29 @@
+{
+  "name": "mcp-calendar-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FreeOps calendar MCP server — internal, backend-to-backend service wrapping Google Calendar API + Microsoft Graph API (app_spec.md Integrations §2). Runs via tsx, like every other TS-source package in this monorepo; there is no bundling step.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@freeops/db": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "googleapis": "^178.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.23.12",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@11.22.0"
+}

@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./client": "./src/client.ts",
-    "./rls-client": "./src/rls-client.ts"
+    "./rls-client": "./src/rls-client.ts",
+    "./encryption": "./src/encryption.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",

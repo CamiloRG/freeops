@@ -8,3 +8,6 @@ allowBuilds:
   esbuild: true
   sharp: false
   unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - googleapis@178.0.0

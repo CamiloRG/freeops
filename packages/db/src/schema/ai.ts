@@ -37,7 +37,7 @@ export const aiProviderConnections = pgTable(
     // string, same forward-compatible pattern as every other enum-like
     // column in this codebase (see _helpers.ts's doc comment).
     provider: text("provider").notNull(),
-    // Envelope-encrypted via the EXISTING apps/web/src/lib/encryption.ts
+    // Envelope-encrypted via the EXISTING @freeops/db/encryption
     // encryptField/decryptField (AES-256-GCM) — same mechanism as
     // banking_details/tax_info, no new crypto code.
     apiKeyEncrypted: bytea("api_key_encrypted").notNull(),
